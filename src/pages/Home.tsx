@@ -8,29 +8,17 @@ import { IconButton } from "@chakra-ui/react";
 import { Menu, MenuButton, MenuList, MenuItem } from "@chakra-ui/react";
 import { TbBrandGoogleDrive } from "react-icons/tb";
 import "../index.css";
-import { useEffect } from "react";
+import { LoginWithGoogle } from "../services/LoginWithGoogle.service";
+import { useEffect, useState } from "react";
 export default function Home() {
-  return <NavBar />;
+  return (
+    <>
+      <NavBar />
+      <Gallery />
+    </>
+  );
 }
-
 function NavBar() {
-  function LoginWithGoogle() {
-    const width = 500;
-    const height = 600;
-    const left = (window.innerWidth - width) / 2;
-    const top = (window.innerHeight - height) / 2;
-    const googleAuthUrl = "https://accounts.google.com/o/oauth2/v2/auth";
-    const clientId = import.meta.env.VITE_CLIENT_ID;
-    const redirectUri = "http://localhost:5173/oauth2/callback";
-    const scope = "https://www.googleapis.com/auth/drive.file";
-    const authUrl = `${googleAuthUrl}?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=token&scope=${scope}`;
-
-    window.open(
-      authUrl,
-      "googleOAuth",
-      `width=${width},height=${height},top=${top},left=${left}`,
-    ); // Redirect to Google OAuth
-  }
   return (
     <Flex color="white" bg="gray.600" h="30px" alignItems="center">
       <div></div>
@@ -88,16 +76,22 @@ function NavBar() {
   );
 }
 function Gallery() {
+  const [files, setFiles] = useState([]);
+  let accessToken = localStorage.getItem("gdrive_access_token");
+  if (!accessToken) return <></>;
   useEffect(() => {
-    // Fetch images from the backend API
-    fetch("http://localhost:3000/api/images")
-      .then((response) => response.json())
+    fetch(`${import.meta.env.VITE_GDRIVE_FILE_LIST_ENDPOINT}?pageSize=10`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    })
+      .then((res) => res.json())
       .then((data) => {
-        console.log(data); // Log the fetched data to the console
-        // You can set the fetched data to state here if needed
+        setFiles(data.files);
       })
-      .catch((error) => {
-        console.error("Error fetching images:", error);
+      .catch((err) => {
+        console.error("Error fetching gdrive files: ", err);
       });
   }, []);
+  return <div className="gallery">Gallery</div>;
 }

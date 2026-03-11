@@ -1,7 +1,7 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import "./App.css";
-import Home from "./pages/home";
-import OAuth2Callback from "./pages/oauth2callback";
+import Home from "./pages/Home";
+import OAuth2Callback from "./pages/Oauth2callback";
 
 function App() {
   return (
@@ -9,7 +9,7 @@ function App() {
       {/* Routes */}
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/oauth2" element={<OAuth2Callback />} />
+        <Route path="/oauth2/callback" element={<OAuth2Callback />} />
       </Routes>
     </>
   );
