@@ -8,7 +8,9 @@ export class EpubFile implements IEpubFile {
       "dc:creator": string;
       "dc:identifiers": string[];
       "dc:date": string;
-      metas: string[];
+      metas: {
+        meta: string;
+      };
     };
     manifest: {
       items: {
