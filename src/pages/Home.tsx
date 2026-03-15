@@ -9,7 +9,13 @@ import { Menu, MenuButton, MenuList, MenuItem } from "@chakra-ui/react";
 import { TbBrandGoogleDrive } from "react-icons/tb";
 import "../index.css";
 import { LoginWithGoogle } from "../services/LoginWithGoogle.service";
+import { useGetGDriveFiles } from "../hooks/GDriveHooks/GetGDriveFilesHook";
+import { GDriveFile } from "../models/GDriveFile";
+import useGetGDriveFileContent from "../hooks/GDriveHooks/GetGriveFileContent";
+import { EpubFile } from "../models/EpubFile";
+import { Unzip } from "../services/epub_service.service";
 import { useEffect, useState } from "react";
+import type { UnzipStructure } from "../models/UnzipStructure";
 export default function Home() {
   return (
     <>
@@ -75,23 +81,28 @@ function NavBar() {
     </Flex>
   );
 }
+function BookCard({ id }: { id: string }) {
+  const [epubFile, setEpubFile] = useState<UnzipStructure | null>(null);
+  const fileContent = useGetGDriveFileContent(
+    "1naglNpRJE_xCYyFMjHHFgVPMc2RLUfU6",
+    localStorage.getItem("gdrive_access_token")!,
+  );
+  if (fileContent) {
+    Unzip(fileContent!).then((res) => {
+      setEpubFile(res);
+    });
+  }
+  return <div className="book-card">BookCard</div>;
+}
 function Gallery() {
-  const [files, setFiles] = useState([]);
   let accessToken = localStorage.getItem("gdrive_access_token");
   if (!accessToken) return <></>;
-  useEffect(() => {
-    fetch(`${import.meta.env.VITE_GDRIVE_FILE_LIST_ENDPOINT}?pageSize=10`, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        setFiles(data.files);
-      })
-      .catch((err) => {
-        console.error("Error fetching gdrive files: ", err);
-      });
-  }, []);
-  return <div className="gallery">Gallery</div>;
+  const files = useGetGDriveFiles(accessToken);
+  return (
+    <div id="gallery">
+      {files?.map((file: GDriveFile, index: number) => (
+        <BookCard key={index} id={file.id} />
+      ))}
+    </div>
+  );
 }

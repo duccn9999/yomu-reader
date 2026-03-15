@@ -1,13 +1,26 @@
-import type { IEpubFile } from "../interfaces/IEpubFile";
-import type { EpubFile } from "../models/EpubFile";
+import type { IUnzipStructure } from "../interfaces/IUnzipStructure";
 import * as zip from "@zip.js/zip.js";
-export async function Unzip(file: Blob): Promise<IEpubFile> {
+import { UnzipStructure } from "../models/UnzipStructure";
+export async function Unzip(file: Blob): Promise<IUnzipStructure> {
   const zipReader = new zip.ZipReader(new zip.BlobReader(file));
   const entries = await zipReader.getEntries();
-  entries.forEach((entry) => {
-    console.log(entry.filename, entry.directory); // directory is true if it's a folder
-  });
-  return null as unknown as EpubFile;
+  let unzipStructure = new UnzipStructure([]);
+  for (const entry of entries) {
+    unzipStructure.structure.push({
+      fileName: entry.filename,
+      isDirectory: entry.directory,
+    });
+
+    if (!entry.directory) {
+      const blob = await entry.getData(new zip.BlobWriter());
+      unzipStructure.structure.push({
+        fileName: entry.filename,
+        isDirectory: entry.directory,
+      });
+    }
+  }
+
+  return unzipStructure;
 }
 
 export function MergeHtml() {}
