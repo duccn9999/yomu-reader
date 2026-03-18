@@ -1,4 +1,4 @@
-export interface IEpubFile {
+export interface IOpfFile {
   package: {
     metadata: {
       "dc:language": string;

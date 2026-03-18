@@ -7,10 +7,15 @@ export default function useGetGDriveFileContent(
 ): Blob | null {
   const [fileContent, setFileContent] = useState<Blob | null>(null);
   useEffect(() => {
+    let flag = true;
+    if (!flag) return;
     if (!fileId || !accessToken) return;
     GDriveService.GetGDriveFileContent(fileId, accessToken).then((res) => {
       if (res) setFileContent(res);
     });
+    return () => {
+      flag = false;
+    };
   }, [fileId, accessToken]);
   return fileContent;
 }

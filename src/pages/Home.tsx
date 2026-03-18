@@ -11,11 +11,8 @@ import "../index.css";
 import { LoginWithGoogle } from "../services/LoginWithGoogle.service";
 import { useGetGDriveFiles } from "../hooks/GDriveHooks/GetGDriveFilesHook";
 import { GDriveFile } from "../models/GDriveFile";
-import useGetGDriveFileContent from "../hooks/GDriveHooks/GetGriveFileContent";
-import { EpubFile } from "../models/EpubFile";
-import { Unzip } from "../services/epub_service.service";
-import { useEffect, useState } from "react";
-import type { UnzipStructure } from "../models/UnzipStructure";
+import useGetFileData from "../hooks/EpubFiles/GetFileData";
+import { XMLParser } from "fast-xml-parser";
 export default function Home() {
   return (
     <>
@@ -82,18 +79,22 @@ function NavBar() {
   );
 }
 function BookCard({ id }: { id: string }) {
-  const [epubFile, setEpubFile] = useState<UnzipStructure | null>(null);
-  const fileContent = useGetGDriveFileContent(
+  const file = useGetFileData(
     "1naglNpRJE_xCYyFMjHHFgVPMc2RLUfU6",
     localStorage.getItem("gdrive_access_token")!,
   );
-  if (fileContent) {
-    Unzip(fileContent!).then((res) => {
-      setEpubFile(res);
-    });
-  }
+  if (!file) return <div className="book-card">Loading...</div>;
+  const opfFile = file.data.find((file) => file.fileName.endsWith(".opf"));
+  const parser = new XMLParser({
+    ignoreAttributes: false,
+    attributeNamePrefix: "@_",
+    removeNSPrefix: true,
+  });
+  let opfData = parser.parse(opfFile?.content as string);
+  console.log(opfData);
   return <div className="book-card">BookCard</div>;
 }
+
 function Gallery() {
   let accessToken = localStorage.getItem("gdrive_access_token");
   if (!accessToken) return <></>;

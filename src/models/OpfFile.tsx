@@ -1,6 +1,6 @@
-import type { IEpubFile } from "../interfaces/IEpubFile";
+import type { IOpfFile } from "../interfaces/IOpfFile";
 
-export class EpubFile implements IEpubFile {
+export class OpfFile implements IOpfFile {
   package: {
     metadata: {
       "dc:language": string;
@@ -32,7 +32,7 @@ export class EpubFile implements IEpubFile {
       }[];
     };
   };
-  constructor(epubFile: IEpubFile) {
-    this.package = epubFile.package;
+  constructor(opfFile: OpfFile) {
+    this.package = opfFile.package;
   }
 }
