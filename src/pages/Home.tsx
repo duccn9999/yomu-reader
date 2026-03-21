@@ -4,15 +4,30 @@ import {
   MdOutlineDriveFolderUpload,
   MdOutlineFileUpload,
 } from "react-icons/md";
-import { IconButton } from "@chakra-ui/react";
-import { Menu, MenuButton, MenuList, MenuItem } from "@chakra-ui/react";
+import {
+  IconButton,
+  Card,
+  CardBody,
+  Text,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem,
+  Image,
+  Fade,
+  ScaleFade,
+  Slide,
+  SlideFade,
+  Collapse,
+  useDisclosure,
+  Box,
+} from "@chakra-ui/react";
 import { TbBrandGoogleDrive } from "react-icons/tb";
 import "../index.css";
 import { LoginWithGoogle } from "../services/LoginWithGoogle.service";
 import { useGetGDriveFiles } from "../hooks/GDriveHooks/GetGDriveFilesHook";
 import { GDriveFile } from "../models/GDriveFile";
 import useGetFileData from "../hooks/EpubFiles/GetFileData";
-import { XMLParser } from "fast-xml-parser";
 export default function Home() {
   return (
     <>
@@ -79,31 +94,69 @@ function NavBar() {
   );
 }
 function BookCard({ id }: { id: string }) {
-  const file = useGetFileData(
+  const { isOpen, onOpen, onClose } = useDisclosure();
+  const [file, cover] = useGetFileData(
     "1naglNpRJE_xCYyFMjHHFgVPMc2RLUfU6",
     localStorage.getItem("gdrive_access_token")!,
   );
-  if (!file) return <div className="book-card">Loading...</div>;
-  const opfFile = file.data.find((file) => file.fileName.endsWith(".opf"));
-  const parser = new XMLParser({
-    ignoreAttributes: false,
-    attributeNamePrefix: "@_",
-    removeNSPrefix: true,
-  });
-  let opfData = parser.parse(opfFile?.content as string);
-  console.log(opfData);
-  return <div className="book-card">BookCard</div>;
+  if (!file) return <div className="book-card"></div>;
+  const coverUrl = URL.createObjectURL(cover as Blob);
+  return (
+    <Card
+      className="book-card"
+      onMouseEnter={onOpen}
+      onMouseLeave={onClose}
+      width="150px"
+      minW="120px"
+      height="200px"
+      position="relative"
+      style={{ cursor: "pointer" }}
+      m={8}
+    >
+      <CardBody p={0}>
+        <Image
+          src={coverUrl}
+          alt="Book Cover"
+          width="100%"
+          height="100%"
+          borderRadius="sm"
+        />
+      </CardBody>
+      <SlideFade in={isOpen} offsetY="20px">
+        <Box
+          position="absolute"
+          bottom="0"
+          left="0"
+          width="100%"
+          bg="rgba(143, 141, 141, 0.8)"
+          color="white"
+          p={2}
+          borderBottomRadius="sm"
+        >
+          <Text>{file.package.metadata.title}</Text>
+        </Box>
+      </SlideFade>
+    </Card>
+  );
 }
 
 function Gallery() {
   let accessToken = localStorage.getItem("gdrive_access_token");
   if (!accessToken) return <></>;
   const files = useGetGDriveFiles(accessToken);
+  // duplicate x10 of files for testing
+  const duplicatedFiles = files ? [...files, ...files, ...files] : [];
+  if (duplicatedFiles.length === 0)
+    return <div style={{ textAlign: "center" }}>Loading....</div>;
   return (
     <div id="gallery">
-      {files?.map((file: GDriveFile, index: number) => (
-        <BookCard key={index} id={file.id} />
-      ))}
+      <Flex alignItems="center" mb="20px" p="16px">
+        {duplicatedFiles.map((file: GDriveFile, index: number) => (
+          <BookCard key={index} id={file.id} />
+        ))}
+      </Flex>
     </div>
   );
 }
+
+function ReadingScreen() {}

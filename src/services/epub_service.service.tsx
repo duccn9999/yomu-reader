@@ -1,10 +1,15 @@
-import type { IUnzipData } from "../interfaces/IUnzipData";
 import * as zip from "@zip.js/zip.js";
-import { UnzipData } from "../models/UnzipData";
-export async function Unzip(file: Blob): Promise<IUnzipData> {
+export async function Unzip(
+  file: Blob,
+): Promise<
+  Map<string, { content: string | Blob | null; isDirectory: boolean }>
+> {
   const zipReader = new zip.ZipReader(new zip.BlobReader(file));
   const entries = (await zipReader.getEntries()) as unknown as zip.FileEntry[];
-  let unzipStructure = new UnzipData([]);
+  let unzipStructure = new Map<
+    string,
+    { content: string | Blob | null; isDirectory: boolean }
+  >();
   for (const entry of entries) {
     let content = null;
     if (
@@ -19,13 +24,12 @@ export async function Unzip(file: Blob): Promise<IUnzipData> {
     ) {
       content = await entry.getData(new zip.TextWriter());
     }
-    unzipStructure.data.push({
-      fileName: entry.filename,
+    unzipStructure.set(entry.filename, {
+      content,
       isDirectory: entry.directory,
-      content: content,
     });
   }
-
+  await zipReader.close();
   return unzipStructure;
 }
 export function MergeHtml() {}
