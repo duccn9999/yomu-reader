@@ -1,5 +1,4 @@
-import { GDriveFile } from "../models/GDriveFile";
-import type { GDriveFileList } from "../models/GDriveFileList";
+import type { GDriveFileList } from "../models/gdrive_file_list";
 
 export class GDriveService {
   /**

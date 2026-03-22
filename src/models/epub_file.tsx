@@ -36,9 +36,10 @@ export class EpubFile {
       }[];
     };
     spine: {
-      itemrefs: {
+      itemref: {
         "@_idref": string;
       }[];
+      "@_toc": string;
     };
     guides: {
       references: {

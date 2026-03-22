@@ -14,20 +14,19 @@ import {
   MenuList,
   MenuItem,
   Image,
-  Fade,
-  ScaleFade,
-  Slide,
   SlideFade,
-  Collapse,
   useDisclosure,
   Box,
 } from "@chakra-ui/react";
 import { TbBrandGoogleDrive } from "react-icons/tb";
 import "../index.css";
-import { LoginWithGoogle } from "../services/LoginWithGoogle.service";
 import { useGetGDriveFiles } from "../hooks/GDriveHooks/GetGDriveFilesHook";
-import { GDriveFile } from "../models/GDriveFile";
-import useGetFileData from "../hooks/EpubFiles/GetFileData";
+import { MemoBooks } from "../db/memory_db/memory_db";
+import type { EpubFile } from "../models/epub_file";
+import type { Book } from "../db/memory_db/memory_db";
+import { GoogleLogin } from "../services/google_login.service";
+import { useMemoBooks } from "../hooks/useMemoBooks";
+import { memo } from "react";
 export default function Home() {
   return (
     <>
@@ -60,7 +59,7 @@ function NavBar() {
               _hover={{ bg: "gray.500" }}
               bg="gray.600"
               color="gray.200"
-              onClick={LoginWithGoogle}
+              onClick={GoogleLogin}
             >
               Google Drive
             </MenuItem>
@@ -93,14 +92,11 @@ function NavBar() {
     </Flex>
   );
 }
-function BookCard({ id }: { id: string }) {
+function BookCard({ file }: { file: Book }) {
   const { isOpen, onOpen, onClose } = useDisclosure();
-  const [file, cover] = useGetFileData(
-    "1naglNpRJE_xCYyFMjHHFgVPMc2RLUfU6",
-    localStorage.getItem("gdrive_access_token")!,
-  );
+
   if (!file) return <div className="book-card"></div>;
-  const coverUrl = URL.createObjectURL(cover as Blob);
+  const coverUrl = URL.createObjectURL(file.cover as Blob);
   return (
     <Card
       className="book-card"
@@ -133,7 +129,7 @@ function BookCard({ id }: { id: string }) {
           p={2}
           borderBottomRadius="sm"
         >
-          <Text>{file.package.metadata.title}</Text>
+          <Text>{file.title}</Text>
         </Box>
       </SlideFade>
     </Card>
@@ -142,17 +138,18 @@ function BookCard({ id }: { id: string }) {
 
 function Gallery() {
   let accessToken = localStorage.getItem("gdrive_access_token");
+  const memoBooks = useMemoBooks();
   if (!accessToken) return <></>;
-  const files = useGetGDriveFiles(accessToken);
-  // duplicate x10 of files for testing
-  const duplicatedFiles = files ? [...files, ...files, ...files] : [];
-  if (duplicatedFiles.length === 0)
+  useGetGDriveFiles(accessToken);
+
+  if (memoBooks.books.size === 0)
     return <div style={{ textAlign: "center" }}>Loading....</div>;
+
   return (
     <div id="gallery">
       <Flex alignItems="center" mb="20px" p="16px">
-        {duplicatedFiles.map((file: GDriveFile, index: number) => (
-          <BookCard key={index} id={file.id} />
+        {Array.from(memoBooks.books.entries()).map(([key, file]) => (
+          <BookCard key={key} file={file} />
         ))}
       </Flex>
     </div>

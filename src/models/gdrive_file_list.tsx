@@ -1,4 +1,4 @@
-import type { GDriveFile } from "./GDriveFile";
+import type { GDriveFile } from "./gdrive_file";
 
 export class GDriveFileList {
   files: GDriveFile[];

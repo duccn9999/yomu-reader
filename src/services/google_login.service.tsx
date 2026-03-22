@@ -8,7 +8,7 @@ const redirectUri = import.meta.env.VITE_REDIRECT_URI;
 const scope = import.meta.env.VITE_GOOGLE_SCOPE;
 const authUrl = `${googleAuthUrl}?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=token&scope=${scope}`;
 
-export function LoginWithGoogle() {
+export function GoogleLogin() {
   window.open(
     authUrl,
     "googleOAuth",
