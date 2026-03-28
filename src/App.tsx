@@ -1,14 +1,14 @@
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { Route, Routes } from "react-router-dom";
 import "./App.css";
-import Home from "./pages/Home";
-import OAuth2Callback from "./pages/Oauth2callback";
+import OAuth2Callback from "./pages/oauth2_callback";
+import Manage from "./pages/home";
 
 function App() {
   return (
     <>
       {/* Routes */}
       <Routes>
-        <Route path="/" element={<Home />} />
+        <Route path="/" element={<Manage />} />
         <Route path="/oauth2/callback" element={<OAuth2Callback />} />
       </Routes>
     </>

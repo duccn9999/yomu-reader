@@ -12,6 +12,8 @@ export function useGetGDriveFiles(accessToken: string): void {
     attributeNamePrefix: "@_",
     removeNSPrefix: true,
   });
+
+  const domParser = new DOMParser();
   useEffect(() => {
     if (!accessToken) return;
     GDriveService.GetGDriveFiles({ accessToken }).then((res) => {
@@ -58,7 +60,10 @@ export function useGetGDriveFiles(accessToken: string): void {
           if (!manifestItem) continue;
 
           const data = unzipData.get(manifestItem);
-          if (data) bookContent.set(idref, data.content as string);
+          const htmlStr = data?.content as string;
+          const html = domParser.parseFromString(htmlStr, "text/html");
+          const body = html.body.innerHTML;
+          if (data) bookContent.set(idref, body);
         }
 
         const book = {

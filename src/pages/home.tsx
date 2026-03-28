@@ -21,17 +21,31 @@ import {
 import { TbBrandGoogleDrive } from "react-icons/tb";
 import "../index.css";
 import { useGetGDriveFiles } from "../hooks/GDriveHooks/GetGDriveFilesHook";
-import { MemoBooks } from "../db/memory_db/memory_db";
-import type { EpubFile } from "../models/epub_file";
-import type { Book } from "../db/memory_db/memory_db";
+import { MemoBooks, type Book } from "../db/memory_db/memory_db";
 import { GoogleLogin } from "../services/google_login.service";
 import { useMemoBooks } from "../hooks/useMemoBooks";
-import { memo } from "react";
-export default function Home() {
+import { ReadingContext, ReadingProvider } from "../contexts/reading_context";
+import { useContext } from "react";
+import DOMPurify from "dompurify";
+export default function Manage() {
+  return (
+    <ReadingProvider>
+      <Home />
+    </ReadingProvider>
+  );
+}
+function Home() {
+  const { id, setId } = useContext(ReadingContext);
   return (
     <>
-      <NavBar />
-      <Gallery />
+      {id ? (
+        <ReadingScreen id={id} setId={setId} />
+      ) : (
+        <>
+          <NavBar />
+          <Gallery />
+        </>
+      )}
     </>
   );
 }
@@ -92,11 +106,13 @@ function NavBar() {
     </Flex>
   );
 }
-function BookCard({ file }: { file: Book }) {
+function BookCard({ file, id }: { file: Book; id: string }) {
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const { setId } = useContext(ReadingContext);
 
   if (!file) return <div className="book-card"></div>;
   const coverUrl = URL.createObjectURL(file.cover as Blob);
+
   return (
     <Card
       className="book-card"
@@ -108,6 +124,7 @@ function BookCard({ file }: { file: Book }) {
       position="relative"
       style={{ cursor: "pointer" }}
       m={8}
+      onClick={() => setId(id)}
     >
       <CardBody p={0}>
         <Image
@@ -144,16 +161,43 @@ function Gallery() {
 
   if (memoBooks.books.size === 0)
     return <div style={{ textAlign: "center" }}>Loading....</div>;
-
+  console.log(memoBooks.books);
   return (
     <div id="gallery">
       <Flex alignItems="center" mb="20px" p="16px">
         {Array.from(memoBooks.books.entries()).map(([key, file]) => (
-          <BookCard key={key} file={file} />
+          <BookCard key={key} file={file} id={key} />
         ))}
       </Flex>
     </div>
   );
 }
 
-function ReadingScreen() {}
+function ReadingScreen({
+  id,
+  setId,
+}: {
+  id: string | number | null;
+  setId: (id: string | number | null) => void;
+}) {
+  console.log("im was here");
+  const book = MemoBooks.books.get(id as string);
+  console.log(book);
+  return (
+    <>
+      <button onClick={() => setId(null)}>back</button> Reading {id}
+      Reading {id}
+      <div>
+        {book?.content &&
+          Array.from(book.content).map(([key, value]) => (
+            <div key={key}>
+              <strong>{key}:</strong>
+              <div
+                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(value) }}
+              ></div>
+            </div>
+          ))}
+      </div>
+    </>
+  );
+}
