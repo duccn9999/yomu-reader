@@ -1,6 +1,10 @@
 export interface IReadingStyle {
   mode: number;
-  textColor: string;
+  txtColor: string;
   bgColor: string;
-  textAlign: string;
+  txtAlign: React.CSSProperties["textAlign"];
+  margin: string;
+  padding: string;
+  font: string;
+  fontSize?: string;
 }

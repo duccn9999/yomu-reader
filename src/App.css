@@ -38,3 +38,19 @@
 .read-the-docs {
   color: #888;
 }
+
+
+#reader {
+  color: var(--txt-color);
+  background-color: var(--bg-color);
+  text-align: var(--txt-align);
+  margin: var(--margin);
+  padding: var(--padding);
+  font-family: var(--font);
+  font-size: var(--font-size);
+}
+
+#reader * {
+  color: inherit;
+  text-align: inherit;
+}

@@ -17,6 +17,7 @@ import {
   SlideFade,
   useDisclosure,
   Box,
+  Button,
 } from "@chakra-ui/react";
 import { TbBrandGoogleDrive } from "react-icons/tb";
 import "../index.css";
@@ -27,6 +28,7 @@ import { useMemoBooks } from "../hooks/useMemoBooks";
 import { ReadingContext, ReadingProvider } from "../contexts/reading_context";
 import { useContext } from "react";
 import DOMPurify from "dompurify";
+import { ReadingStyle } from "../models/reading_style";
 export default function Manage() {
   return (
     <ReadingProvider>
@@ -101,6 +103,9 @@ function NavBar() {
           }}
           w="100%"
           h="100%"
+          onClick={() => {
+            window.location.href = "/setting";
+          }}
         />
       </Square>
     </Flex>
@@ -161,7 +166,6 @@ function Gallery() {
 
   if (memoBooks.books.size === 0)
     return <div style={{ textAlign: "center" }}>Loading....</div>;
-  console.log(memoBooks.books);
   return (
     <div id="gallery">
       <Flex alignItems="center" mb="20px" p="16px">
@@ -180,14 +184,25 @@ function ReadingScreen({
   id: string | number | null;
   setId: (id: string | number | null) => void;
 }) {
-  console.log("im was here");
   const book = MemoBooks.books.get(id as string);
-  console.log(book);
+  const readingStyle = new ReadingStyle();
   return (
     <>
-      <button onClick={() => setId(null)}>back</button> Reading {id}
-      Reading {id}
-      <div>
+      <Button onClick={() => setId(null)}>back</Button>
+      <div
+        id="reader"
+        style={
+          {
+            "--txt-color": readingStyle.txtColor,
+            "--bg-color": readingStyle.bgColor,
+            "--txt-align": readingStyle.txtAlign,
+            "--margin": readingStyle.margin,
+            "--padding": readingStyle.padding,
+            "--font": readingStyle.font,
+            "--font-size": readingStyle.fontSize,
+          } as React.CSSProperties
+        }
+      >
         {book?.content &&
           Array.from(book.content).map(([key, value]) => (
             <div key={key}>
