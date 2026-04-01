@@ -17,45 +17,76 @@ import {
   SlideFade,
   useDisclosure,
   Box,
-  Button,
 } from "@chakra-ui/react";
 import { TbBrandGoogleDrive } from "react-icons/tb";
+import { IoHomeOutline } from "react-icons/io5";
 import "../index.css";
 import { useGetGDriveFiles } from "../hooks/GDriveHooks/GetGDriveFilesHook";
 import { MemoBooks, type Book } from "../db/memory_db/memory_db";
 import { GoogleLogin } from "../services/google_login.service";
 import { useMemoBooks } from "../hooks/useMemoBooks";
 import { ReadingContext, ReadingProvider } from "../contexts/reading_context";
-import { useContext } from "react";
+import { useContext, useState } from "react";
 import DOMPurify from "dompurify";
-import { ReadingStyle } from "../models/reading_style";
-export default function Manage() {
+import { ThemeContext } from "../contexts/theme_context";
+import Setting from "./setting";
+
+export function Manage() {
   return (
     <ReadingProvider>
       <Home />
     </ReadingProvider>
   );
 }
+
 function Home() {
-  const { id, setId } = useContext(ReadingContext);
+  const { id } = useContext(ReadingContext);
+  /* gallery: home, 1: setting */
+  const [screen, setScreen] = useState<number>(0);
+
   return (
     <>
+      <NavBar setScreen={setScreen} />
+
       {id ? (
-        <ReadingScreen id={id} setId={setId} />
+        <ReadingScreen id={id} />
       ) : (
-        <>
-          <NavBar />
-          <Gallery />
-        </>
+        <>{screen === 0 ? <Gallery /> : <Setting />}</>
       )}
     </>
   );
 }
-function NavBar() {
+export function NavBar({
+  setScreen,
+}: {
+  setScreen: React.Dispatch<React.SetStateAction<number>>;
+}) {
+  const { setId } = useContext(ReadingContext);
+
   return (
-    <Flex color="white" bg="gray.600" h="30px" alignItems="center">
+    <Flex color="white" bg="gray.600" h="30px" alignItems="center" p={2}>
       <div></div>
-      <Square ml="auto" size="30px">
+      <Square ml="auto" size="30px" style={{ float: "left" }}>
+        <Menu>
+          <MenuButton
+            as={IconButton}
+            _hover={{
+              bg: "gray.500",
+              color: "white",
+            }}
+            icon={<IoHomeOutline />}
+            size="sm"
+            w="100%"
+            h="100%"
+            colorScheme="grey.600"
+            onClick={() => {
+              setId(null);
+              setScreen(0);
+            }}
+          ></MenuButton>
+        </Menu>
+      </Square>
+      <Square size="30px">
         <Menu>
           <MenuButton
             as={IconButton}
@@ -104,7 +135,7 @@ function NavBar() {
           w="100%"
           h="100%"
           onClick={() => {
-            window.location.href = "/setting";
+            setScreen(1);
           }}
         />
       </Square>
@@ -177,29 +208,23 @@ function Gallery() {
   );
 }
 
-function ReadingScreen({
-  id,
-  setId,
-}: {
-  id: string | number | null;
-  setId: (id: string | number | null) => void;
-}) {
+function ReadingScreen({ id }: { id: string | number | null }) {
   const book = MemoBooks.books.get(id as string);
-  const readingStyle = new ReadingStyle();
+  const { theme } = useContext(ThemeContext);
+  if (!book) return <div style={{ textAlign: "center" }}>Loading....</div>;
   return (
     <>
-      <Button onClick={() => setId(null)}>back</Button>
       <div
         id="reader"
         style={
           {
-            "--txt-color": readingStyle.txtColor,
-            "--bg-color": readingStyle.bgColor,
-            "--txt-align": readingStyle.txtAlign,
-            "--margin": readingStyle.margin,
-            "--padding": readingStyle.padding,
-            "--font": readingStyle.font,
-            "--font-size": readingStyle.fontSize,
+            "--txt-color": theme?.txtColor,
+            "--bg-color": theme?.bgColor,
+            "--txt-align": theme?.txtAlign,
+            "--margin": theme?.margin,
+            "--padding": theme?.padding,
+            "--font": theme?.font,
+            "--font-size": theme?.fontSize,
           } as React.CSSProperties
         }
       >

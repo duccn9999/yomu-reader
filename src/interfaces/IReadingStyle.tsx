@@ -1,5 +1,5 @@
 export interface IReadingStyle {
-  mode: number;
+  id: number;
   txtColor: string;
   bgColor: string;
   txtAlign: React.CSSProperties["textAlign"];
