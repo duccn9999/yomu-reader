@@ -6,5 +6,5 @@ export interface IReadingStyle {
   margin: string;
   padding: string;
   font: string;
-  fontSize?: string;
+  fontSize?: number | undefined;
 }

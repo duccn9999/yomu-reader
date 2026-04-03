@@ -13,7 +13,7 @@ const DefaultValue: ReadingStyle = {
   margin: "0",
   padding: "0 1.5rem 0 1.5rem",
   font: "Noto Serif JP",
-  fontSize: "14px",
+  fontSize: 16,
 };
 
 export const ThemeContext = createContext<ThemeContextType>({

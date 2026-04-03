@@ -8,7 +8,7 @@ export class ReadingStyle implements IReadingStyle {
   margin: string;
   padding: string;
   font: string;
-  fontSize?: string | undefined;
+  fontSize?: number | undefined;
   constructor(
     id: number,
     txtColor: string,
@@ -17,7 +17,7 @@ export class ReadingStyle implements IReadingStyle {
     margin: string,
     padding: string,
     font: string,
-    fontSize?: string,
+    fontSize?: number | undefined,
   ) {
     this.id = id;
     this.txtColor = txtColor;

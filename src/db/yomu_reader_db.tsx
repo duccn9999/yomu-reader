@@ -98,3 +98,18 @@ export function getTheme(
     };
   });
 }
+export function getThemes(db: IDBDatabase): Promise<ReadingStyle[]> {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction("themes", "readonly");
+    const store = transaction.objectStore("themes");
+    const request = store.getAll();
+
+    request.onsuccess = () => {
+      resolve(request.result);
+    };
+
+    request.onerror = () => {
+      reject(request.error);
+    };
+  });
+}

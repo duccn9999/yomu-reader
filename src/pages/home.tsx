@@ -134,9 +134,7 @@ export function NavBar({
           }}
           w="100%"
           h="100%"
-          onClick={() => {
-            setScreen(1);
-          }}
+          onClick={() => setScreen(1)}
         />
       </Square>
     </Flex>
@@ -224,14 +222,13 @@ function ReadingScreen({ id }: { id: string | number | null }) {
             "--margin": theme?.margin,
             "--padding": theme?.padding,
             "--font": theme?.font,
-            "--font-size": theme?.fontSize,
+            "--font-size": `${theme?.fontSize}px`,
           } as React.CSSProperties
         }
       >
         {book?.content &&
           Array.from(book.content).map(([key, value]) => (
             <div key={key}>
-              <strong>{key}:</strong>
               <div
                 dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(value) }}
               ></div>
