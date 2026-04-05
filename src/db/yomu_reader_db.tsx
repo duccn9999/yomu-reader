@@ -1,4 +1,5 @@
-import type { ReadingStyle } from "../models/reading_style";
+import type { Theme } from "../models/theme";
+import { DefaultValues } from "../utils/default_values";
 
 export function OpenDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -17,21 +18,14 @@ export function OpenDB(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains("themes")) {
         db.createObjectStore("themes", {
           keyPath: "id",
+          autoIncrement: true,
         });
 
         const store = tx.objectStore("themes");
-        store.put({
-          id: 1,
-          txtColor: "#000000",
-          bgColor: "#ffffff",
-          txtAlign: "justify",
-          padding: "1em",
-          margin: "1em",
-          fontSize: "16px",
-          fontFamily: "Arial, sans-serif",
-        });
+        store.put(DefaultValues.lightTheme);
+        store.put(DefaultValues.darkTheme);
         tx.oncomplete = () => {
-          console.log("Default theme added");
+          console.log("Default themes added");
         };
       }
     };
@@ -79,10 +73,7 @@ export function getBooks(db: IDBDatabase) {
   });
 }
 
-export function getTheme(
-  db: IDBDatabase,
-  id: number,
-): Promise<ReadingStyle | null> {
+export function getTheme(db: IDBDatabase, id: number): Promise<Theme | null> {
   return new Promise((resolve, reject) => {
     const transaction = db.transaction("themes", "readonly");
     const store = transaction.objectStore("themes");
@@ -98,11 +89,58 @@ export function getTheme(
     };
   });
 }
-export function getThemes(db: IDBDatabase): Promise<ReadingStyle[]> {
+export function getThemes(db: IDBDatabase): Promise<Theme[]> {
   return new Promise((resolve, reject) => {
     const transaction = db.transaction("themes", "readonly");
     const store = transaction.objectStore("themes");
     const request = store.getAll();
+
+    request.onsuccess = () => {
+      resolve(request.result);
+    };
+
+    request.onerror = () => {
+      reject(request.error);
+    };
+  });
+}
+export function addTheme(db: IDBDatabase, theme: Theme) {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction("themes", "readwrite");
+    const store = transaction.objectStore("themes");
+    const request = store.add(theme);
+
+    request.onsuccess = () => {
+      resolve(request.result);
+    };
+
+    request.onerror = () => {
+      reject(request.error);
+    };
+  });
+}
+
+export function updateTheme(db: IDBDatabase, theme: Theme) {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction("themes", "readwrite");
+    const store = transaction.objectStore("themes");
+    const request = store.put(theme);
+
+    request.onsuccess = () => {
+      resolve(request.result);
+    };
+
+    request.onerror = () => {
+      reject(request.error);
+    };
+  });
+}
+
+export function deleteTheme(db: IDBDatabase, id: number) {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction("themes", "readwrite");
+    const store = transaction.objectStore("themes");
+    const request = store.delete(id);
 
     request.onsuccess = () => {
       resolve(request.result);

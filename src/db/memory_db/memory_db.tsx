@@ -44,5 +44,7 @@ export class memo_books {
     }
   }
 }
-
+export const cache = {
+  root_folder_id: "",
+};
 export const MemoBooks = new memo_books();

@@ -3,7 +3,7 @@ import "./App.css";
 import OAuth2Callback from "./pages/oauth2_callback";
 import { Manage } from "./pages/home";
 import { ThemeContext, ThemeProvider } from "./contexts/theme_context";
-import type { ReadingStyle } from "./models/reading_style";
+import type { Theme } from "./models/theme";
 import { getTheme } from "./db/yomu_reader_db";
 import { useContext, useEffect } from "react";
 import { DbContext, DbContextProvider } from "./contexts/db_context";
@@ -16,7 +16,7 @@ function App() {
       if (db) {
         const theme = await getTheme(db, 1);
         if (theme) {
-          setTheme(theme as ReadingStyle);
+          setTheme(theme as Theme & { id: number });
         }
       }
     }

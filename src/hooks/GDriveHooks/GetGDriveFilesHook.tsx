@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { GDriveService } from "../../services/gdrive_service.service";
-import type { GDriveFile } from "../../models/gdrive_file";
+import { GDriveFile } from "../../models/gdrive_file";
 import type { EpubFile } from "../../models/epub_file";
 import { Unzip } from "../../services/epub_service.service";
 import { XMLParser } from "fast-xml-parser";
-import { MemoBooks } from "../../db/memory_db/memory_db";
+import { cache, MemoBooks } from "../../db/memory_db/memory_db";
 export function useGetGDriveFiles(accessToken: string): void {
   const [files, setFiles] = useState<GDriveFile[] | undefined>(undefined);
   const parser = new XMLParser({
@@ -15,10 +15,18 @@ export function useGetGDriveFiles(accessToken: string): void {
 
   const domParser = new DOMParser();
   useEffect(() => {
-    if (!accessToken) return;
-    GDriveService.GetGDriveFiles({ accessToken }).then((res) => {
+    async function init() {
+      const folderId = await GDriveService.CreateDirectory(
+        accessToken,
+        `${import.meta.env.VITE_ROOT_FOLDER_NAME}`,
+      );
+      if (!folderId) return;
+      cache.root_folder_id = folderId;
+      const res = await GDriveService.GetGDriveFiles({ accessToken, folderId });
       if (res) setFiles(res.files);
-    });
+    }
+
+    init();
   }, [accessToken]);
 
   // get file data
