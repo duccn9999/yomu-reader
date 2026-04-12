@@ -28,6 +28,13 @@ export function OpenDB(): Promise<IDBDatabase> {
           console.log("Default themes added");
         };
       }
+
+      if (!db.objectStoreNames.contains("settings")) {
+        db.createObjectStore("settings", {
+          keyPath: "id",
+          autoIncrement: true,
+        });
+      }
     };
 
     request.onsuccess = (event) => {

@@ -1,7 +1,10 @@
+import type { SelectedData } from "../../models/selected_data";
+
 export type Book = {
   title: string;
   cover: Blob | null;
   content: Map<string, string>;
+  notes: { noteId: string; data: SelectedData[] };
 };
 type Listener = () => void;
 export class memo_books {

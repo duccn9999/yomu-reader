@@ -1,35 +1,26 @@
 export class SelectedData {
-  startContainer: Node;
+  startPath: number[];
   startOffset: number;
-  endContainer: Node;
+  endPath: number[];
   endOffset: number;
-  range: Range;
   text: string;
   note: string;
   color: string;
-  x: number;
-  y: number;
   constructor(
-    startContainer: Node,
     startOffset: number,
-    endContainer: Node,
     endOffset: number,
-    range: Range,
+    startPath: number[],
+    endPath: number[],
     text: string,
     note: string,
     color: string,
-    x: number,
-    y: number,
   ) {
-    this.startContainer = startContainer;
     this.startOffset = startOffset;
-    this.endContainer = endContainer;
     this.endOffset = endOffset;
-    this.range = range;
+    this.startPath = startPath;
+    this.endPath = endPath;
     this.text = text;
     this.note = note;
     this.color = color;
-    this.x = x;
-    this.y = y;
   }
 }

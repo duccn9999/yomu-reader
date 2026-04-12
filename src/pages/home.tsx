@@ -4,7 +4,6 @@ import {
   MdOutlineDriveFolderUpload,
   MdOutlineFileUpload,
 } from "react-icons/md";
-import { FaUpload } from "react-icons/fa";
 import {
   IconButton,
   Card,
@@ -18,31 +17,25 @@ import {
   SlideFade,
   useDisclosure,
   Box,
-  Popover,
-  PopoverTrigger,
   Button,
-  PopoverContent,
-  PopoverArrow,
-  PopoverCloseButton,
-  PopoverHeader,
-  PopoverBody,
   Input,
-  Select,
   Icon,
 } from "@chakra-ui/react";
 import { TbBrandGoogleDrive } from "react-icons/tb";
 import { IoHomeOutline } from "react-icons/io5";
 import "../index.css";
 import { useGetGDriveFiles } from "../hooks/GDriveHooks/GetGDriveFilesHook";
-import { MemoBooks, type Book } from "../db/memory_db/memory_db";
+import { cache, MemoBooks, type Book } from "../db/memory_db/memory_db";
 import { GoogleLogin } from "../services/google_login.service";
 import { useMemoBooks } from "../hooks/useMemoBooks";
 import { ReadingContext, ReadingProvider } from "../contexts/reading_context";
-import { useContext, useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import DOMPurify from "dompurify";
 import { ThemeContext } from "../contexts/theme_context";
 import Setting from "./setting";
 import type { SelectedData } from "../models/selected_data";
+import { GDriveService } from "../services/gdrive_service.service";
+import type { Metadata } from "../models/metadata";
 
 export function Manage() {
   return (
@@ -58,7 +51,7 @@ function Home() {
   const [screen, setScreen] = useState<number>(0);
 
   return (
-    <>
+    <div style={{ position: "relative" }}>
       <NavBar setScreen={setScreen} />
 
       {id ? (
@@ -66,7 +59,7 @@ function Home() {
       ) : (
         <>{screen === 0 ? <Gallery /> : <Setting />}</>
       )}
-    </>
+    </div>
   );
 }
 export function NavBar({
@@ -77,7 +70,16 @@ export function NavBar({
   const { setId } = useContext(ReadingContext);
 
   return (
-    <Flex color="white" bg="gray.600" h="30px" alignItems="center" p={2}>
+    <Flex
+      color="white"
+      bg="gray.600"
+      h="30px"
+      alignItems="center"
+      p={2}
+      position="sticky"
+      top={0}
+      zIndex={10}
+    >
       <Square ml="auto" size="30px" style={{ float: "left" }}>
         <Menu>
           <MenuButton
@@ -200,18 +202,64 @@ function BookCard({ file, id }: { file: Book; id: string }) {
 }
 
 function Gallery() {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   let accessToken = localStorage.getItem("gdrive_access_token");
   const memoBooks = useMemoBooks();
   if (!accessToken) return <></>;
   useGetGDriveFiles(accessToken);
 
+  function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSelectedFile(file);
+  }
+
+  async function onUploadConfirm() {
+    if (!selectedFile) return;
+    await UploadBook(selectedFile);
+    setSelectedFile(null);
+  }
+
+  async function UploadBook(file: File) {
+    const res = await GDriveService.UploadBook(
+      accessToken as string,
+      file,
+      cache.root_folder_id,
+    );
+  }
   if (!memoBooks.books)
     return <div style={{ textAlign: "center" }}>Loading....</div>;
   else if (memoBooks.books.size === 0)
     return (
-      <div style={{ textAlign: "center", width: "100%", margin: "auto" }}>
-        <Icon as={FaUpload} />
-      </div>
+      <Flex
+        justify="center"
+        align="center"
+        width="67%"
+        height="100vh"
+        margin="auto"
+      >
+        <label htmlFor="file-input">
+          <Icon as={MdOutlineFileUpload} boxSize={20} mr={2} cursor="pointer" />
+        </label>
+        <Input
+          type="file"
+          accept=".epub"
+          display="none"
+          id="file-input"
+          onChange={onFileChange}
+        />
+        {selectedFile && (
+          <Box mt={4} textAlign="center">
+            <Text mb={2}>{selectedFile.name}</Text>
+            <Button onClick={onUploadConfirm} mr={2}>
+              Upload
+            </Button>
+            <Button variant="ghost" onClick={() => setSelectedFile(null)}>
+              Cancel
+            </Button>
+          </Box>
+        )}
+      </Flex>
     );
   return (
     <div id="gallery">
@@ -225,17 +273,42 @@ function Gallery() {
 }
 
 function ReadingScreen({ id }: { id: string | number | null }) {
-  const book = MemoBooks.books.get(id as string);
+  const book = MemoBooks.books.get(id as string) as Book;
   const { theme } = useContext(ThemeContext);
   const contentRef = useRef<HTMLDivElement>(null);
-  const [selectedData, setSelectedData] = useState<SelectedData | null>(null);
+  const selectionRef = useRef<SelectedData | null>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
   const [note, setNote] = useState<string>("");
   const [color, setColor] = useState<string>("yellow");
   if (!book) return <div style={{ textAlign: "center" }}>Loading....</div>;
 
   useEffect(() => {
     const contentEl = contentRef.current;
+    const popover = popoverRef.current;
     if (!contentEl) return;
+
+    function getNodePath(node: Node, root: Node): number[] {
+      const path: number[] = [];
+      let current = node;
+      while (current !== root) {
+        const parent = current.parentNode;
+        if (!parent) break;
+        path.unshift(
+          Array.from(parent.childNodes).indexOf(current as ChildNode),
+        );
+        current = parent;
+      }
+      return path;
+    }
+
+    function resolveNodePath(path: number[], root: Node): Node {
+      let current: Node = root;
+      for (const i of path) {
+        current = current.childNodes[i];
+      }
+      return current;
+    }
+
     function onMouseUp() {
       const selection = window.getSelection();
       if (!selection || selection.toString().trim() === "") return;
@@ -243,103 +316,164 @@ function ReadingScreen({ id }: { id: string | number | null }) {
       const text = selection.toString().trim();
       const range = selection.getRangeAt(0);
       const rect = range.getBoundingClientRect();
-      setSelectedData({
-        startContainer: range.startContainer,
+
+      selectionRef.current = {
+        startPath: getNodePath(range.startContainer, contentEl),
         startOffset: range.startOffset,
-        endContainer: range.endContainer,
+        endPath: getNodePath(range.endContainer, contentEl!),
         endOffset: range.endOffset,
-        range,
         text,
-        note,
-        color,
-        x: rect.left + rect.width / 2,
-        y: rect.top - 10,
+      };
+
+      if (popover) {
+        popover.style.display = "block";
+        popover.style.position = "fixed";
+        const popoverHeight = popover.offsetHeight;
+        const popoverWidth = popover.offsetWidth;
+        const top =
+          rect.top >= popoverHeight + 8
+            ? rect.top - popoverHeight - 8
+            : rect.bottom + 8;
+        popover.style.top = `${top}px`;
+        popover.style.left = `${rect.left + rect.width / 2 - popoverWidth / 2}px`;
+      }
+    }
+
+    function onClose(e: MouseEvent) {
+      if (popover && !popover.contains(e.target as Node)) {
+        popover.style.display = "none";
+        setNote("");
+        setColor("yellow");
+        selectionRef.current = null;
+      }
+    }
+
+    function applyNotes() {
+      if (!book.notes || book.notes.data.length === 0) return;
+
+      book.notes.data.forEach((note) => {
+        try {
+          const range = document.createRange();
+          range.setStart(
+            resolveNodePath(note.startPath, contentEl!),
+            note.startOffset,
+          );
+          range.setEnd(
+            resolveNodePath(note.endPath, contentEl!),
+            note.endOffset,
+          );
+
+          const span = document.createElement("span");
+          span.style.backgroundColor = note.color;
+          span.title = note.note;
+
+          try {
+            range.surroundContents(span);
+          } catch {
+            span.appendChild(range.extractContents());
+            range.insertNode(span);
+          }
+        } catch (e) {
+          console.warn("Failed to apply highlight:", e);
+        }
       });
     }
+
     contentEl.addEventListener("mouseup", onMouseUp);
+    document.addEventListener("mousedown", onClose);
+    applyNotes();
+
     return () => {
       contentEl.removeEventListener("mouseup", onMouseUp);
+      document.removeEventListener("mousedown", onClose);
     };
-  }, []);
+  }, [id]);
 
-  function applyHighlight() {
-    if (!selectedData) return;
+  const renderedContent = useMemo(() => {
+    if (!book.content) return null;
+    return Array.from(book.content).map(([key, value]) => (
+      <div key={key} data-key={key}>
+        <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(value) }} />
+      </div>
+    ));
+  }, [id, book.content]);
 
-    cookieStore.set("highlight", JSON.stringify(selectedData));
-    const highlight = document.createElement("mark");
-    highlight.style.backgroundColor = color;
-    highlight.title = note;
+  function addNote() {
+    if (!selectionRef.current || !popoverRef.current) return;
 
-    setSelectedData(null);
+    const selection = selectionRef.current;
+    selection.note = note;
+    selection.color = color;
+
+    const highlightSpan = document.createElement("span");
+    highlightSpan.style.backgroundColor = color;
+    book.notes.data.push(selection);
+    popoverRef.current.style.display = "none";
+    selectionRef.current = null;
+    setColor("yellow");
     setNote("");
   }
+
+  useEffect(() => {
+    if (!id || typeof id !== "string") return;
+
+    const syncTimer = setInterval(
+      () => {
+        GDriveService.SyncMetadata(book.notes.noteId, "", {
+          progress: 0,
+          notes: book.notes.data,
+        } as Metadata)
+          .then(() => console.log("Sync successful!"))
+          .catch(console.error);
+      },
+      3 * 60 * 1000,
+    ); // 10 minutes
+
+    return () => clearInterval(syncTimer);
+  }, [id, book.notes]);
+
+  console.log("Rendered ReadingScreen with book:", book);
   return (
     <>
-      <Popover
-        isOpen={!!selectedData}
-        onClose={() => setSelectedData(null)}
-        placement="top"
+      <div
+        ref={popoverRef}
+        style={{
+          display: "none",
+          zIndex: 1000,
+          padding: "0.75rem 1rem",
+          borderRadius: "0.5rem",
+          backgroundColor: "white",
+          boxShadow: "0 2px 10px rgba(0,0,0,0.2)",
+          minWidth: "220px",
+        }}
       >
-        <PopoverTrigger>
-          <Box
-            position="fixed"
-            w="1px"
-            h="1px"
-            top={selectedData?.y}
-            left={selectedData?.x}
-          />
-        </PopoverTrigger>
-        <PopoverContent>
-          <PopoverArrow />
-          <PopoverCloseButton onClick={() => setSelectedData(null)} />
-          <PopoverHeader>Confirmation!</PopoverHeader>
-          <PopoverBody>
-            <Input
-              placeholder="Add note..."
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              mb={2}
+        <Input
+          placeholder="Add note..."
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          mb={2}
+          size="sm"
+        />
+
+        <Flex gap={2} mb={2}>
+          {["yellow", "lightgreen", "lightblue", "lightsalmon"].map((c) => (
+            <Box
+              key={c}
+              onClick={() => setColor(c)}
+              bg={c}
+              w="20px"
+              h="20px"
+              borderRadius="50%"
+              cursor="pointer"
+              border={color === c ? "2px solid black" : "2px solid transparent"}
             />
+          ))}
+        </Flex>
 
-            <Flex gap={2}>
-              <Box
-                as="button"
-                onClick={() => setColor("yellow")}
-                bg="yellow"
-                w="20px"
-                h="20px"
-                borderRadius="50%"
-                border={color === "yellow" ? "2px solid black" : "none"}
-                cursor="pointer"
-              />
-              <Box
-                as="button"
-                onClick={() => setColor("lightgreen")}
-                bg="lightgreen"
-                w="20px"
-                h="20px"
-                borderRadius="50%"
-                border={color === "lightgreen" ? "2px solid black" : "none"}
-                cursor="pointer"
-              />
-              <Box
-                as="button"
-                onClick={() => setColor("lightblue")}
-                bg="lightblue"
-                w="20px"
-                h="20px"
-                borderRadius="50%"
-                border={color === "lightblue" ? "2px solid black" : "none"}
-                cursor="pointer"
-              />
-            </Flex>
-
-            <Button mt={2} size="sm" onClick={applyHighlight}>
-              Save
-            </Button>
-          </PopoverBody>
-        </PopoverContent>
-      </Popover>
+        <Button size="sm" colorScheme="blue" w="100%" onClick={addNote}>
+          Save
+        </Button>
+      </div>
       <div
         id="reader"
         style={
@@ -361,16 +495,7 @@ function ReadingScreen({ id }: { id: string | number | null }) {
         }
       >
         <div id="content" ref={contentRef}>
-          {book?.content &&
-            Array.from(book.content).map(([key, value]) => (
-              <div key={key}>
-                <div
-                  dangerouslySetInnerHTML={{
-                    __html: DOMPurify.sanitize(value),
-                  }}
-                ></div>
-              </div>
-            ))}
+          {book?.content && renderedContent}
         </div>
       </div>
     </>
