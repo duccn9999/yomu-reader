@@ -5,8 +5,8 @@ export class Metadata {
   progress: number;
   notes: SelectedData[];
 
-  constructor(progress: number, notes: SelectedData[]) {
-    this.lastRead = new Date();
+  constructor(lastRead: Date | null, progress: number, notes: SelectedData[]) {
+    this.lastRead = lastRead;
     this.progress = progress;
     this.notes = notes;
   }

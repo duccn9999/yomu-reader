@@ -17,7 +17,7 @@ export class GDriveService {
     accessToken: string;
     folderId: string;
   }): Promise<RootFolder | undefined> {
-    let root: RootFolder = new RootFolder([]);
+    let root = new RootFolder(folderId);
     // 1. get subfolders
     const query = `'${folderId}' in parents and mimeType = '${import.meta.env.VITE_FOLDER_MIME_TYPE}' and trashed = false`;
 
@@ -56,20 +56,8 @@ export class GDriveService {
     if (!filesFetch) return undefined;
     const files = await filesFetch.json();
     // 3. map files to their parent folder
-    const folderContentMap = new Map<
-      string,
-      {
-        content?: GDriveFile;
-        metadata?: {
-          id: string;
-          data: Metadata;
-        };
-      }
-    >();
-
     for (const file of files.files) {
       const parentId = file.parents[0];
-      const existing = folderContentMap.get(parentId) ?? {};
 
       const gdriveFile: GDriveFile = {
         id: file.id,
@@ -79,33 +67,11 @@ export class GDriveService {
         parents: file.parents,
       };
 
-      if (file.mimeType === "application/json") {
-        existing.metadata = {
-          id: file.id,
-          data: {
-            lastRead: null,
-            progress: 0,
-            notes: [] as SelectedData[],
-          },
-        };
-      } else {
-        existing.content = gdriveFile;
+      if (!root.folders.has(parentId)) {
+        root.folders.set(parentId, []);
       }
-
-      folderContentMap.set(parentId, existing);
+      root.folders.get(parentId)?.push(gdriveFile);
     }
-
-    // 4. construct the root folder object
-    for (const [id, items] of folderContentMap.entries()) {
-      if (!items.content || !items.metadata) continue;
-      root.folders.push({
-        id,
-        content: items.content,
-        metadata: items.metadata,
-      });
-    }
-
-    console.log(folderContentMap);
     return root;
   }
 
@@ -272,7 +238,7 @@ export class GDriveService {
     accessToken: string,
     metadata: Metadata,
   ) {
-    const query = `${import.meta.env.VITE_GDRIVE_FILE_LIST_ENDPOINT}/${fileId}`;
+    const query = `${import.meta.env.VITE_GDRIVE_FILE_UPDATE_ENDPOINT}/${fileId}?uploadType=media`;
     const res = await fetch(query, {
       method: "PATCH",
       headers: {

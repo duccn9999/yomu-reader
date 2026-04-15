@@ -20,6 +20,7 @@ import {
   Button,
   Input,
   Icon,
+  Spacer,
 } from "@chakra-ui/react";
 import { TbBrandGoogleDrive } from "react-icons/tb";
 import { IoHomeOutline } from "react-icons/io5";
@@ -36,7 +37,9 @@ import Setting from "./setting";
 import type { SelectedData } from "../models/selected_data";
 import { GDriveService } from "../services/gdrive_service.service";
 import type { Metadata } from "../models/metadata";
-
+import { LuBookOpenText } from "react-icons/lu";
+import { GrNotes } from "react-icons/gr";
+import { ScreenContext } from "../contexts/screen_context";
 export function Manage() {
   return (
     <ReadingProvider>
@@ -47,28 +50,28 @@ export function Manage() {
 
 function Home() {
   const { id } = useContext(ReadingContext);
-  /* gallery: home, 1: setting */
-  const [screen, setScreen] = useState<number>(0);
-
+  /* gallery: home, 1: setting, 2: reading */
+  const { screen, setScreen } = useContext(ScreenContext);
+  const renderScreen = () => {
+    switch (screen) {
+      case 0:
+        return <Gallery />;
+      case 1:
+        return <Setting />;
+      case 2:
+        return <ReadingScreen id={id} />;
+      default:
+        return null;
+    }
+  };
   return (
     <div style={{ position: "relative" }}>
       <NavBar setScreen={setScreen} />
-
-      {id ? (
-        <ReadingScreen id={id} />
-      ) : (
-        <>{screen === 0 ? <Gallery /> : <Setting />}</>
-      )}
+      {renderScreen()}
     </div>
   );
 }
-export function NavBar({
-  setScreen,
-}: {
-  setScreen: React.Dispatch<React.SetStateAction<number>>;
-}) {
-  const { setId } = useContext(ReadingContext);
-
+export function NavBar({ setScreen }: { setScreen: (screen: number) => void }) {
   return (
     <Flex
       color="white"
@@ -80,7 +83,14 @@ export function NavBar({
       top={0}
       zIndex={10}
     >
-      <Square ml="auto" size="30px" style={{ float: "left" }}>
+      <Square
+        ml="auto"
+        size="30px"
+        style={{ float: "left" }}
+        onClick={() => {
+          setScreen(0);
+        }}
+      >
         <Menu>
           <MenuButton
             as={IconButton}
@@ -93,13 +103,34 @@ export function NavBar({
             w="100%"
             h="100%"
             colorScheme="grey.600"
-            onClick={() => {
-              setId(null);
-              setScreen(0);
-            }}
           ></MenuButton>
         </Menu>
       </Square>
+      <Spacer />
+
+      <Square
+        ml="auto"
+        size="30px"
+        style={{ float: "left" }}
+        onClick={() => setScreen(2)}
+      >
+        <Menu>
+          <MenuButton
+            as={IconButton}
+            _hover={{
+              bg: "gray.500",
+              color: "white",
+            }}
+            icon={<LuBookOpenText />}
+            size="sm"
+            w="100%"
+            h="100%"
+            colorScheme="grey.600"
+          ></MenuButton>
+        </Menu>
+      </Square>
+      <Spacer />
+
       <Square size="30px">
         <Menu>
           <MenuButton
@@ -135,7 +166,7 @@ export function NavBar({
           </MenuList>
         </Menu>
       </Square>
-      <Square size="30px">
+      <Square size="30px" onClick={() => setScreen(1)}>
         <IconButton
           variant="solid"
           aria-label="setting"
@@ -148,7 +179,21 @@ export function NavBar({
           }}
           w="100%"
           h="100%"
-          onClick={() => setScreen(1)}
+        />
+      </Square>
+      <Square size="30px">
+        <IconButton
+          variant="solid"
+          aria-label="setting"
+          colorScheme="gray.400"
+          icon={<GrNotes />}
+          size="sm"
+          _hover={{
+            bg: "gray.500",
+            color: "white",
+          }}
+          w="100%"
+          h="100%"
         />
       </Square>
     </Flex>
@@ -157,8 +202,9 @@ export function NavBar({
 function BookCard({ file, id }: { file: Book; id: string }) {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { setId } = useContext(ReadingContext);
-
+  const { setScreen } = useContext(ScreenContext);
   if (!file) return <div className="book-card"></div>;
+
   const coverUrl = URL.createObjectURL(file.cover as Blob);
 
   return (
@@ -172,7 +218,10 @@ function BookCard({ file, id }: { file: Book; id: string }) {
       position="relative"
       style={{ cursor: "pointer" }}
       m={8}
-      onClick={() => setId(id)}
+      onClick={() => {
+        setId(id);
+        setScreen(2);
+      }}
     >
       <CardBody p={0}>
         <Image
@@ -221,12 +270,13 @@ function Gallery() {
   }
 
   async function UploadBook(file: File) {
-    const res = await GDriveService.UploadBook(
+    await GDriveService.UploadBook(
       accessToken as string,
       file,
       cache.root_folder_id,
     );
   }
+
   if (!memoBooks.books)
     return <div style={{ textAlign: "center" }}>Loading....</div>;
   else if (memoBooks.books.size === 0)
@@ -280,34 +330,97 @@ function ReadingScreen({ id }: { id: string | number | null }) {
   const popoverRef = useRef<HTMLDivElement>(null);
   const [note, setNote] = useState<string>("");
   const [color, setColor] = useState<string>("yellow");
+  let accessToken = localStorage.getItem("gdrive_access_token");
+
   if (!book) return <div style={{ textAlign: "center" }}>Loading....</div>;
+  function getNodePath(node: Node, root: Node): number[] {
+    const path: number[] = [];
+    let current = node;
+    while (current !== root) {
+      const parent = current.parentNode;
+      if (!parent) break;
+      path.unshift(Array.from(parent.childNodes).indexOf(current as ChildNode));
+      current = parent;
+    }
+    return path;
+  }
+
+  function resolveNodePath(path: number[], root: Node): Node {
+    let current: Node = root;
+    for (const i of path) {
+      current = current.childNodes[i];
+    }
+    return current;
+  }
+
+  function applyNotes(contentEl: HTMLDivElement = contentRef.current!) {
+    const notes = book.notes;
+
+    if (!notes || notes.data.length === 0) return;
+
+    notes.data.forEach((note) => {
+      try {
+        const range = document.createRange();
+        range.setStart(
+          resolveNodePath(note.startPath, contentEl!),
+          note.startOffset,
+        );
+        range.setEnd(resolveNodePath(note.endPath, contentEl!), note.endOffset);
+
+        const span = document.createElement("span");
+        span.style.backgroundColor = note.color;
+        span.title = note.note;
+        span.style.cursor = "pointer";
+        span.dataset.note = note.note; // store note text
+
+        span.addEventListener("click", (e) => {
+          e.stopPropagation();
+
+          // remove existing tooltip if any
+          document.getElementById("note-tooltip")?.remove();
+
+          if (!note.note) return; // no tooltip if note is empty
+
+          const tooltip = document.createElement("div");
+          tooltip.id = "note-tooltip";
+          tooltip.textContent = note.note;
+          tooltip.style.cssText = `
+          position: fixed;
+          background: white;
+          border-radius: 6px;
+          padding: 6px 10px;
+          font-size: 13px;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+          z-index: 9999;
+          max-width: 200px;
+          pointer-events: none;
+          top: ${e.clientY - 40}px;
+          left: ${e.clientX}px;
+  `;
+
+          document.body.appendChild(tooltip);
+
+          document.addEventListener("click", () => {
+            document.getElementById("note-tooltip")?.remove();
+          });
+        });
+
+        try {
+          range.surroundContents(span);
+        } catch {
+          span.appendChild(range.extractContents());
+          range.insertNode(span);
+        }
+      } catch (e) {
+        console.warn("Failed to apply highlight:", e);
+      }
+    });
+  }
 
   useEffect(() => {
     const contentEl = contentRef.current;
     const popover = popoverRef.current;
     if (!contentEl) return;
-
-    function getNodePath(node: Node, root: Node): number[] {
-      const path: number[] = [];
-      let current = node;
-      while (current !== root) {
-        const parent = current.parentNode;
-        if (!parent) break;
-        path.unshift(
-          Array.from(parent.childNodes).indexOf(current as ChildNode),
-        );
-        current = parent;
-      }
-      return path;
-    }
-
-    function resolveNodePath(path: number[], root: Node): Node {
-      let current: Node = root;
-      for (const i of path) {
-        current = current.childNodes[i];
-      }
-      return current;
-    }
 
     function onMouseUp() {
       const selection = window.getSelection();
@@ -348,37 +461,6 @@ function ReadingScreen({ id }: { id: string | number | null }) {
       }
     }
 
-    function applyNotes() {
-      if (!book.notes || book.notes.data.length === 0) return;
-
-      book.notes.data.forEach((note) => {
-        try {
-          const range = document.createRange();
-          range.setStart(
-            resolveNodePath(note.startPath, contentEl!),
-            note.startOffset,
-          );
-          range.setEnd(
-            resolveNodePath(note.endPath, contentEl!),
-            note.endOffset,
-          );
-
-          const span = document.createElement("span");
-          span.style.backgroundColor = note.color;
-          span.title = note.note;
-
-          try {
-            range.surroundContents(span);
-          } catch {
-            span.appendChild(range.extractContents());
-            range.insertNode(span);
-          }
-        } catch (e) {
-          console.warn("Failed to apply highlight:", e);
-        }
-      });
-    }
-
     contentEl.addEventListener("mouseup", onMouseUp);
     document.addEventListener("mousedown", onClose);
     applyNotes();
@@ -392,7 +474,7 @@ function ReadingScreen({ id }: { id: string | number | null }) {
   const renderedContent = useMemo(() => {
     if (!book.content) return null;
     return Array.from(book.content).map(([key, value]) => (
-      <div key={key} data-key={key}>
+      <div key={key} data-key={key} id={key}>
         <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(value) }} />
       </div>
     ));
@@ -400,7 +482,7 @@ function ReadingScreen({ id }: { id: string | number | null }) {
 
   function addNote() {
     if (!selectionRef.current || !popoverRef.current) return;
-
+    applyNotes();
     const selection = selectionRef.current;
     selection.note = note;
     selection.color = color;
@@ -418,21 +500,24 @@ function ReadingScreen({ id }: { id: string | number | null }) {
     if (!id || typeof id !== "string") return;
 
     const syncTimer = setInterval(
-      () => {
-        GDriveService.SyncMetadata(book.notes.noteId, "", {
-          progress: 0,
-          notes: book.notes.data,
-        } as Metadata)
+      async () => {
+        await GDriveService.SyncMetadata(
+          book.notes.noteId,
+          accessToken as string,
+          {
+            lastRead: new Date(),
+            progress: 0,
+            notes: book.notes.data,
+          } as Metadata,
+        )
           .then(() => console.log("Sync successful!"))
-          .catch(console.error);
+          .catch((err) => console.error("Sync failed: ", err));
       },
       3 * 60 * 1000,
     ); // 10 minutes
 
     return () => clearInterval(syncTimer);
   }, [id, book.notes]);
-
-  console.log("Rendered ReadingScreen with book:", book);
   return (
     <>
       <div

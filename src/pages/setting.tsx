@@ -36,11 +36,8 @@ export default function Setting() {
   const [themes, setThemes] = useState<(Theme & { id: number })[]>([]);
   const { isOpen, onOpen, onClose } = useDisclosure();
   const toast = useToast();
-  if (!db) {
-    return <div>Loading...</div>;
-  }
-
   useEffect(() => {
+    if (!db) return;
     async function fetchThemes() {
       const themes = await getThemes(db as IDBDatabase);
       setThemes(themes as (Theme & { id: number })[]);
@@ -48,6 +45,9 @@ export default function Setting() {
     fetchThemes();
   }, []);
 
+  if (!db) {
+    return <div>Loading...</div>;
+  }
   async function SaveTheme() {
     const newTheme: Theme = {
       name: theme.name,

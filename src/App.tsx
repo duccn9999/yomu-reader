@@ -7,6 +7,7 @@ import type { Theme } from "./models/theme";
 import { getTheme } from "./db/yomu_reader_db";
 import { useContext, useEffect } from "react";
 import { DbContext, DbContextProvider } from "./contexts/db_context";
+import { ScreenProvider } from "./contexts/screen_context";
 
 function App() {
   const { db } = useContext(DbContext);
@@ -26,13 +27,15 @@ function App() {
     <>
       {/* Routes */}
       <DbContextProvider>
-        <ThemeProvider>
-          <Routes>
-            <Route path="/" element={<Manage />} />
-            <Route path="/oauth2/callback" element={<OAuth2Callback />} />
-            <Route path="*" element={<div>404 Not Found</div>} />
-          </Routes>
-        </ThemeProvider>
+        <ScreenProvider>
+          <ThemeProvider>
+            <Routes>
+              <Route path="/" element={<Manage />} />
+              <Route path="/oauth2/callback" element={<OAuth2Callback />} />
+              <Route path="*" element={<div>404 Not Found</div>} />
+            </Routes>
+          </ThemeProvider>
+        </ScreenProvider>
       </DbContextProvider>
     </>
   );
