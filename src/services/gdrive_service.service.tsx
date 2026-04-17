@@ -233,6 +233,19 @@ export class GDriveService {
     return res.json().then((data) => data.id);
   }
 
+  static async DeleteFile(fileId: string, accessToken: string) {
+    const query = `${import.meta.env.VITE_GDRIVE_FILE_LIST_ENDPOINT}/${fileId}`;
+    const res = await fetch(query, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+    if (!res.ok) {
+      console.error("Error deleting file: ", res.statusText);
+    }
+  }
+
   static async SyncMetadata(
     fileId: string,
     accessToken: string,

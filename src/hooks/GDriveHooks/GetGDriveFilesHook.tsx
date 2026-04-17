@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { GDriveService } from "../../services/gdrive_service.service";
 import type { EpubFile } from "../../models/epub_file";
 import { Unzip } from "../../services/epub_service.service";
@@ -6,6 +6,7 @@ import { XMLParser } from "fast-xml-parser";
 import { cache, MemoBooks, type Book } from "../../db/memory_db/memory_db";
 import type { RootFolder } from "../../models/root_folder";
 import type { Metadata } from "../../models/metadata";
+import { SignalContext } from "../../contexts/signal_context";
 export function useGetGDriveFiles(accessToken: string): void {
   const [root, setRoot] = useState<RootFolder | undefined>(undefined);
   const parser = new XMLParser({
@@ -13,6 +14,9 @@ export function useGetGDriveFiles(accessToken: string): void {
     attributeNamePrefix: "@_",
     removeNSPrefix: true,
   });
+  const ctx = useContext(SignalContext);
+  if (!ctx) throw new Error("SignalContext not found");
+  const { trigger } = ctx;
 
   const domParser = new DOMParser();
   useEffect(() => {
@@ -112,11 +116,11 @@ export function useGetGDriveFiles(accessToken: string): void {
           id: bookId,
           file: book,
         });
+        trigger();
       }
     }
 
     fetchFiles();
-
     return () => {
       cancelled = true;
     };

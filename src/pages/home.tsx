@@ -1,4 +1,10 @@
-import { Flex, Square } from "@chakra-ui/icons";
+import {
+  DeleteIcon,
+  Flex,
+  Square,
+  ChevronDownIcon,
+  ChevronUpIcon,
+} from "@chakra-ui/icons";
 import { GoGear } from "react-icons/go";
 import {
   MdOutlineDriveFolderUpload,
@@ -28,7 +34,6 @@ import "../index.css";
 import { useGetGDriveFiles } from "../hooks/GDriveHooks/GetGDriveFilesHook";
 import { cache, MemoBooks, type Book } from "../db/memory_db/memory_db";
 import { GoogleLogin } from "../services/google_login.service";
-import { useMemoBooks } from "../hooks/useMemoBooks";
 import { ReadingContext, ReadingProvider } from "../contexts/reading_context";
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import DOMPurify from "dompurify";
@@ -40,6 +45,7 @@ import type { Metadata } from "../models/metadata";
 import { LuBookOpenText } from "react-icons/lu";
 import { GrNotes } from "react-icons/gr";
 import { ScreenContext } from "../contexts/screen_context";
+import { SignalContext } from "../contexts/signal_context";
 export function Manage() {
   return (
     <ReadingProvider>
@@ -60,6 +66,8 @@ function Home() {
         return <Setting />;
       case 2:
         return <ReadingScreen id={id} />;
+      case 3:
+        return <Notes />;
       default:
         return null;
     }
@@ -181,7 +189,7 @@ export function NavBar({ setScreen }: { setScreen: (screen: number) => void }) {
           h="100%"
         />
       </Square>
-      <Square size="30px">
+      <Square size="30px" onClick={() => setScreen(3)}>
         <IconButton
           variant="solid"
           aria-label="setting"
@@ -200,21 +208,17 @@ export function NavBar({ setScreen }: { setScreen: (screen: number) => void }) {
   );
 }
 function BookCard({ file, id }: { file: Book; id: string }) {
-  const { isOpen, onOpen, onClose } = useDisclosure();
   const { setId } = useContext(ReadingContext);
   const { setScreen } = useContext(ScreenContext);
   if (!file) return <div className="book-card"></div>;
 
   const coverUrl = URL.createObjectURL(file.cover as Blob);
-
+  function handleDelete(id: string) {}
   return (
     <Card
       className="book-card"
-      onMouseEnter={onOpen}
-      onMouseLeave={onClose}
       width="150px"
       minW="120px"
-      height="200px"
       position="relative"
       style={{ cursor: "pointer" }}
       m={8}
@@ -228,24 +232,32 @@ function BookCard({ file, id }: { file: Book; id: string }) {
           src={coverUrl}
           alt="Book Cover"
           width="100%"
-          height="100%"
+          height="200px"
           borderRadius="sm"
         />
-      </CardBody>
-      <SlideFade in={isOpen} offsetY="20px">
-        <Box
+
+        {/* Delete icon */}
+        <IconButton
+          icon={<DeleteIcon />}
           position="absolute"
-          bottom="0"
-          left="0"
-          width="100%"
-          bg="rgba(143, 141, 141, 0.8)"
-          color="white"
-          p={2}
-          borderBottomRadius="sm"
-        >
-          <Text>{file.title}</Text>
-        </Box>
-      </SlideFade>
+          top="2"
+          right="2"
+          size="sm"
+          colorScheme="red"
+          aria-label="Delete book"
+          onClick={(e) => {
+            e.stopPropagation(); // Prevent card click event
+            handleDelete(id); // Your delete function
+          }}
+        />
+      </CardBody>
+
+      {/* Title below the cover */}
+      <Box width="100%" color="white" p={2} borderBottomRadius="sm">
+        <Text fontSize="sm" noOfLines={2} color="black" fontWeight={450}>
+          {file.title}
+        </Text>
+      </Box>
     </Card>
   );
 }
@@ -253,7 +265,6 @@ function BookCard({ file, id }: { file: Book; id: string }) {
 function Gallery() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   let accessToken = localStorage.getItem("gdrive_access_token");
-  const memoBooks = useMemoBooks();
   if (!accessToken) return <></>;
   useGetGDriveFiles(accessToken);
 
@@ -277,9 +288,9 @@ function Gallery() {
     );
   }
 
-  if (!memoBooks.books)
+  if (!MemoBooks.books)
     return <div style={{ textAlign: "center" }}>Loading....</div>;
-  else if (memoBooks.books.size === 0)
+  else if (MemoBooks.books.size === 0)
     return (
       <Flex
         justify="center"
@@ -314,7 +325,7 @@ function Gallery() {
   return (
     <div id="gallery">
       <Flex alignItems="center" mb="20px" p="16px">
-        {Array.from(memoBooks.books.entries()).map(([key, file]) => (
+        {Array.from(MemoBooks.books.entries()).map(([key, file]) => (
           <BookCard key={key} file={file} id={key} />
         ))}
       </Flex>
@@ -331,7 +342,9 @@ function ReadingScreen({ id }: { id: string | number | null }) {
   const [note, setNote] = useState<string>("");
   const [color, setColor] = useState<string>("yellow");
   let accessToken = localStorage.getItem("gdrive_access_token");
-
+  const ctx = useContext(SignalContext);
+  if (!ctx) throw new Error("SignalContext not found");
+  const { trigger } = ctx;
   if (!book) return <div style={{ textAlign: "center" }}>Loading....</div>;
   function getNodePath(node: Node, root: Node): number[] {
     const path: number[] = [];
@@ -424,7 +437,8 @@ function ReadingScreen({ id }: { id: string | number | null }) {
 
     function onMouseUp() {
       const selection = window.getSelection();
-      if (!selection || selection.toString().trim() === "") return;
+      if (!selection || selection.toString().trim() === "" || !contentEl)
+        return;
 
       const text = selection.toString().trim();
       const range = selection.getRangeAt(0);
@@ -436,6 +450,8 @@ function ReadingScreen({ id }: { id: string | number | null }) {
         endPath: getNodePath(range.endContainer, contentEl!),
         endOffset: range.endOffset,
         text,
+        color,
+        note,
       };
 
       if (popover) {
@@ -482,7 +498,6 @@ function ReadingScreen({ id }: { id: string | number | null }) {
 
   function addNote() {
     if (!selectionRef.current || !popoverRef.current) return;
-    applyNotes();
     const selection = selectionRef.current;
     selection.note = note;
     selection.color = color;
@@ -492,8 +507,10 @@ function ReadingScreen({ id }: { id: string | number | null }) {
     book.notes.data.push(selection);
     popoverRef.current.style.display = "none";
     selectionRef.current = null;
+    applyNotes();
     setColor("yellow");
     setNote("");
+    trigger();
   }
 
   useEffect(() => {
@@ -584,5 +601,134 @@ function ReadingScreen({ id }: { id: string | number | null }) {
         </div>
       </div>
     </>
+  );
+}
+
+function Notes() {
+  const [noteText, setNoteText] = useState("");
+  const [expandedBooks, setExpandedBooks] = useState(new Set());
+  function handleSave(book: Book, index: number) {
+    if (noteText && book.notes?.data?.[index]) {
+      book.notes.data[index].note = noteText;
+    }
+  }
+  const toggleBook = (bookId: number | string) => {
+    setExpandedBooks((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(bookId)) {
+        newSet.delete(bookId);
+      } else {
+        newSet.add(bookId);
+      }
+      return newSet;
+    });
+  };
+  function handleDelete(book: Book, index: number) {
+    const note = book.notes?.data[index];
+    if (!note) return;
+    book.notes?.data.splice(index, 1);
+  }
+
+  return (
+    <Box p={6}>
+      {Array.from(MemoBooks.books.entries()).map(([bookId, book]) => (
+        <Box key={bookId} mb={8}>
+          {/* Book header with dropdown toggle */}
+          <Flex
+            align="center"
+            justify="space-between"
+            mb={3}
+            p={3}
+            bg="gray.50"
+            borderRadius="md"
+            cursor="pointer"
+            onClick={() => toggleBook(bookId)}
+            _hover={{ bg: "gray.100" }}
+          >
+            <Text fontStyle="italic" fontWeight={600}>
+              {book.title}
+            </Text>
+            <Flex align="center" gap={2}>
+              <Text fontSize="xs" color="gray.500">
+                {book.notes?.data?.length || 0} notes
+              </Text>
+              {expandedBooks.has(bookId) ? (
+                <ChevronUpIcon boxSize={5} />
+              ) : (
+                <ChevronDownIcon boxSize={5} />
+              )}
+            </Flex>
+          </Flex>
+
+          {/* Collapsible notes section */}
+          {expandedBooks.has(bookId) && (
+            <Box pl={4}>
+              {(book.notes?.data ?? []).map((note, index) => (
+                <Flex
+                  key={index}
+                  gap={3}
+                  align="start"
+                  mb={3}
+                  p={3}
+                  border="1px solid"
+                  borderColor="gray.200"
+                  borderRadius="lg"
+                >
+                  <Box
+                    w="10px"
+                    h="10px"
+                    borderRadius="full"
+                    bg={note.color}
+                    mt={1}
+                    flexShrink={0}
+                  />
+                  <Box flex={1}>
+                    <Text
+                      fontSize="xs"
+                      color="gray.400"
+                      mb={1}
+                      fontFamily="mono"
+                      borderLeft="2px solid"
+                      borderColor="gray.200"
+                      pl={2}
+                    >
+                      {note.text}
+                    </Text>
+                    <Input
+                      size="sm"
+                      variant="flushed"
+                      value={note.note}
+                      placeholder="Add a note..."
+                      onChange={(e) => {
+                        note.note = e.target.value;
+                        setNoteText(e.target.value);
+                      }}
+                    />
+                  </Box>
+                  <Flex gap={2}>
+                    <Button
+                      size="xs"
+                      colorScheme="green"
+                      variant="outline"
+                      onClick={() => handleSave(book, index)}
+                    >
+                      Save
+                    </Button>
+                    <Button
+                      size="xs"
+                      colorScheme="red"
+                      variant="outline"
+                      onClick={() => handleDelete(book, index)}
+                    >
+                      Delete
+                    </Button>
+                  </Flex>
+                </Flex>
+              ))}
+            </Box>
+          )}
+        </Box>
+      ))}
+    </Box>
   );
 }
