@@ -33,7 +33,6 @@ import { IoHomeOutline } from "react-icons/io5";
 import "../index.css";
 import { useGetGDriveFiles } from "../hooks/GDriveHooks/GetGDriveFilesHook";
 import { cache, MemoBooks, type Book } from "../db/memory_db/memory_db";
-import { GoogleLogin } from "../services/google_login.service";
 import { ReadingContext, ReadingProvider } from "../contexts/reading_context";
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import DOMPurify from "dompurify";
@@ -46,6 +45,7 @@ import { LuBookOpenText } from "react-icons/lu";
 import { GrNotes } from "react-icons/gr";
 import { ScreenContext } from "../contexts/screen_context";
 import { SignalContext } from "../contexts/signal_context";
+import { useGoogleLogin } from "../services/google_login.service";
 export function Manage() {
   return (
     <ReadingProvider>
@@ -72,6 +72,7 @@ function Home() {
         return null;
     }
   };
+
   return (
     <div style={{ position: "relative" }}>
       <NavBar setScreen={setScreen} />
@@ -79,7 +80,27 @@ function Home() {
     </div>
   );
 }
+
 export function NavBar({ setScreen }: { setScreen: (screen: number) => void }) {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const accessToken = localStorage.getItem("gdrive_access_token");
+
+  function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSelectedFile(file);
+  }
+
+  async function onUploadConfirm() {
+    if (!selectedFile || !accessToken) return;
+    await GDriveService.UploadBook(
+      accessToken,
+      selectedFile,
+      cache.root_folder_id,
+    );
+    setSelectedFile(null);
+  }
+
   return (
     <Flex
       color="white"
@@ -95,25 +116,21 @@ export function NavBar({ setScreen }: { setScreen: (screen: number) => void }) {
         ml="auto"
         size="30px"
         style={{ float: "left" }}
-        onClick={() => {
-          setScreen(0);
-        }}
+        onClick={() => setScreen(0)}
       >
         <Menu>
           <MenuButton
             as={IconButton}
-            _hover={{
-              bg: "gray.500",
-              color: "white",
-            }}
+            _hover={{ bg: "gray.500", color: "white" }}
             icon={<IoHomeOutline />}
             size="sm"
             w="100%"
             h="100%"
             colorScheme="grey.600"
-          ></MenuButton>
+          />
         </Menu>
       </Square>
+
       <Spacer />
 
       <Square
@@ -125,55 +142,75 @@ export function NavBar({ setScreen }: { setScreen: (screen: number) => void }) {
         <Menu>
           <MenuButton
             as={IconButton}
-            _hover={{
-              bg: "gray.500",
-              color: "white",
-            }}
+            _hover={{ bg: "gray.500", color: "white" }}
             icon={<LuBookOpenText />}
             size="sm"
             w="100%"
             h="100%"
             colorScheme="grey.600"
-          ></MenuButton>
+          />
         </Menu>
       </Square>
+
       <Spacer />
 
-      <Square size="30px">
-        <Menu>
-          <MenuButton
-            as={IconButton}
-            _hover={{
-              bg: "gray.500",
-              color: "white",
+      {/* ← upload moved here */}
+      {accessToken && (
+        <Square size="30px">
+          <label
+            htmlFor="file-input"
+            style={{
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "100%",
+              height: "100%",
             }}
-            icon={<MdOutlineDriveFolderUpload />}
-            size="sm"
-            w="100%"
-            h="100%"
-            colorScheme="grey.600"
-          ></MenuButton>
-          <MenuList bg="gray.600" color="white" w="75px">
-            <MenuItem
-              icon={<TbBrandGoogleDrive />}
-              _hover={{ bg: "gray.500" }}
-              bg="gray.600"
-              color="gray.200"
-              onClick={GoogleLogin}
-            >
-              Google Drive
-            </MenuItem>
-            <MenuItem
-              icon={<MdOutlineFileUpload />}
-              _hover={{ bg: "gray.500" }}
-              bg="gray.600"
-              color="gray.200"
-            >
-              Upload from devices
-            </MenuItem>
-          </MenuList>
-        </Menu>
-      </Square>
+          >
+            <Icon as={MdOutlineFileUpload} />
+          </label>
+          <Input
+            type="file"
+            accept=".epub"
+            display="none"
+            id="file-input"
+            onChange={onFileChange}
+          />
+        </Square>
+      )}
+
+      {/* confirm dialog */}
+      {selectedFile && (
+        <Flex
+          position="fixed"
+          bottom={4}
+          left="50%"
+          transform="translateX(-50%)"
+          bg="gray.700"
+          p={3}
+          borderRadius="md"
+          gap={3}
+          alignItems="center"
+          zIndex={20}
+        >
+          <Text color="white" fontSize="sm">
+            {selectedFile.name}
+          </Text>
+          <Button size="xs" colorScheme="blue" onClick={onUploadConfirm}>
+            Upload
+          </Button>
+          <Button
+            size="xs"
+            variant="ghost"
+            color="white"
+            onClick={() => setSelectedFile(null)}
+          >
+            Cancel
+          </Button>
+        </Flex>
+      )}
+
       <Square size="30px" onClick={() => setScreen(1)}>
         <IconButton
           variant="solid"
@@ -181,14 +218,12 @@ export function NavBar({ setScreen }: { setScreen: (screen: number) => void }) {
           colorScheme="gray.400"
           icon={<GoGear />}
           size="sm"
-          _hover={{
-            bg: "gray.500",
-            color: "white",
-          }}
+          _hover={{ bg: "gray.500", color: "white" }}
           w="100%"
           h="100%"
         />
       </Square>
+
       <Square size="30px" onClick={() => setScreen(3)}>
         <IconButton
           variant="solid"
@@ -196,10 +231,7 @@ export function NavBar({ setScreen }: { setScreen: (screen: number) => void }) {
           colorScheme="gray.400"
           icon={<GrNotes />}
           size="sm"
-          _hover={{
-            bg: "gray.500",
-            color: "white",
-          }}
+          _hover={{ bg: "gray.500", color: "white" }}
           w="100%"
           h="100%"
         />
@@ -263,34 +295,18 @@ function BookCard({ file, id }: { file: Book; id: string }) {
 }
 
 function Gallery() {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  let accessToken = localStorage.getItem("gdrive_access_token");
-  if (!accessToken) return <></>;
-  useGetGDriveFiles(accessToken);
+  const [, setIsLoggedIn] = useState(
+    !!localStorage.getItem("gdrive_access_token"),
+  );
+  const { login } = useGoogleLogin(() => {
+    setIsLoggedIn(true);
+    window.location.reload();
+  });
 
-  function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setSelectedFile(file);
-  }
+  const accessToken = localStorage.getItem("gdrive_access_token");
+  useGetGDriveFiles(accessToken!); // ← always called, handle null inside the hook
 
-  async function onUploadConfirm() {
-    if (!selectedFile) return;
-    await UploadBook(selectedFile);
-    setSelectedFile(null);
-  }
-
-  async function UploadBook(file: File) {
-    await GDriveService.UploadBook(
-      accessToken as string,
-      file,
-      cache.root_folder_id,
-    );
-  }
-
-  if (!MemoBooks.books)
-    return <div style={{ textAlign: "center" }}>Loading....</div>;
-  else if (MemoBooks.books.size === 0)
+  if (!accessToken) {
     return (
       <Flex
         justify="center"
@@ -299,40 +315,26 @@ function Gallery() {
         height="100vh"
         margin="auto"
       >
-        <label htmlFor="file-input">
-          <Icon as={MdOutlineFileUpload} boxSize={20} mr={2} cursor="pointer" />
-        </label>
-        <Input
-          type="file"
-          accept=".epub"
-          display="none"
-          id="file-input"
-          onChange={onFileChange}
-        />
-        {selectedFile && (
-          <Box mt={4} textAlign="center">
-            <Text mb={2}>{selectedFile.name}</Text>
-            <Button onClick={onUploadConfirm} mr={2}>
-              Upload
-            </Button>
-            <Button variant="ghost" onClick={() => setSelectedFile(null)}>
-              Cancel
-            </Button>
-          </Box>
-        )}
+        <Button
+          leftIcon={<TbBrandGoogleDrive />}
+          onClick={login}
+          colorScheme="blue"
+          size="lg"
+        >
+          Connect Google Drive
+        </Button>
       </Flex>
     );
+  }
+
   return (
-    <div id="gallery">
-      <Flex alignItems="center" mb="20px" p="16px">
-        {Array.from(MemoBooks.books.entries()).map(([key, file]) => (
-          <BookCard key={key} file={file} id={key} />
-        ))}
-      </Flex>
-    </div>
+    <Flex wrap="wrap" p={4} gap={4}>
+      {Array.from(MemoBooks.books.entries()).map(([id, file]) => (
+        <BookCard key={id} id={id} file={file} />
+      ))}
+    </Flex>
   );
 }
-
 function ReadingScreen({ id }: { id: string | number | null }) {
   const book = MemoBooks.books.get(id as string) as Book;
   const { theme } = useContext(ThemeContext);
@@ -368,7 +370,6 @@ function ReadingScreen({ id }: { id: string | number | null }) {
 
   function applyNotes(contentEl: HTMLDivElement = contentRef.current!) {
     const notes = book.notes;
-
     if (!notes || notes.data.length === 0) return;
 
     notes.data.forEach((note) => {
@@ -489,11 +490,25 @@ function ReadingScreen({ id }: { id: string | number | null }) {
 
   const renderedContent = useMemo(() => {
     if (!book.content) return null;
-    return Array.from(book.content).map(([key, value]) => (
-      <div key={key} data-key={key} id={key}>
-        <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(value) }} />
-      </div>
-    ));
+    return Array.from(book.content)
+      .map(([key, value]) => {
+        const bodyMatch = value.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+        const bodyContent = bodyMatch ? bodyMatch[1].trim() : value.trim();
+
+        if (!bodyContent || bodyContent.replace(/<[^>]*>/g, "").trim() === "")
+          return null;
+
+        return (
+          <div key={key} data-key={key} id={key}>
+            <div
+              dangerouslySetInnerHTML={{
+                __html: DOMPurify.sanitize(bodyContent),
+              }}
+            />
+          </div>
+        );
+      })
+      .filter(Boolean);
   }, [id, book.content]);
 
   function addNote() {

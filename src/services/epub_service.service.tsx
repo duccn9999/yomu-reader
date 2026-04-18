@@ -20,7 +20,8 @@ export async function Unzip(
       content = await entry.getData(new zip.BlobWriter());
     } else if (
       entry.filename.endsWith(".opf") ||
-      entry.filename.endsWith(".html")
+      entry.filename.endsWith(".html") ||
+      entry.filename.endsWith(".xhtml")
     ) {
       content = await entry.getData(new zip.TextWriter());
     }

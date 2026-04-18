@@ -59,9 +59,16 @@ export function useGetGDriveFiles(accessToken: string): void {
             const unzipData = await Unzip(blob);
             // if (cancelled) return;
 
-            const opfFile = unzipData.get("content.opf");
-            const coverFile =
-              unzipData.get("cover.jpg") || unzipData.get("cover.jpeg");
+            const opfEntry = Array.from(unzipData.keys()).find((key) =>
+              key.endsWith("content.opf"),
+            );
+            const opfFile = opfEntry ? unzipData.get(opfEntry) : undefined;
+            const coverEntry = Array.from(unzipData.keys()).find((key) =>
+              key.toLowerCase().includes("cover"),
+            );
+            const coverFile = coverEntry
+              ? unzipData.get(coverEntry)
+              : undefined;
 
             const opfData = parser.parse(
               opfFile?.content as string,
@@ -84,7 +91,14 @@ export function useGetGDriveFiles(accessToken: string): void {
               const manifestItem = manifestMap.get(idref);
               if (!manifestItem) continue;
 
-              const data = unzipData.get(manifestItem);
+              const data =
+                unzipData.get(manifestItem) ??
+                unzipData.get(
+                  Array.from(unzipData.keys()).find((k) =>
+                    k.endsWith(manifestItem),
+                  ) ?? "",
+                );
+
               const htmlStr = data?.content as string;
 
               const html = domParser.parseFromString(htmlStr, "text/html");
