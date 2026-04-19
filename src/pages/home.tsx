@@ -4,6 +4,7 @@ import {
   Square,
   ChevronDownIcon,
   ChevronUpIcon,
+  SearchIcon,
 } from "@chakra-ui/icons";
 import { GoGear } from "react-icons/go";
 import {
@@ -27,6 +28,10 @@ import {
   Input,
   Icon,
   Spacer,
+  Divider,
+  SimpleGrid,
+  InputGroup,
+  InputLeftElement,
 } from "@chakra-ui/react";
 import { TbBrandGoogleDrive } from "react-icons/tb";
 import { IoHomeOutline } from "react-icons/io5";
@@ -103,72 +108,59 @@ export function NavBar({ setScreen }: { setScreen: (screen: number) => void }) {
 
   return (
     <Flex
-      color="white"
-      bg="gray.600"
-      h="30px"
+      bg="gray.700"
+      h="44px"
       alignItems="center"
-      p={2}
+      px={2}
+      gap={1}
       position="sticky"
       top={0}
       zIndex={10}
     >
-      <Square
-        ml="auto"
-        size="30px"
-        style={{ float: "left" }}
+      {/* left — nav */}
+      <IconButton
+        aria-label="home"
+        icon={<IoHomeOutline />}
+        variant="ghost"
+        color="whiteAlpha.700"
+        _hover={{ bg: "whiteAlpha.200", color: "white" }}
+        size="sm"
+        borderRadius="lg"
         onClick={() => setScreen(0)}
-      >
-        <Menu>
-          <MenuButton
-            as={IconButton}
-            _hover={{ bg: "gray.500", color: "white" }}
-            icon={<IoHomeOutline />}
-            size="sm"
-            w="100%"
-            h="100%"
-            colorScheme="grey.600"
-          />
-        </Menu>
-      </Square>
+      />
 
-      <Spacer />
-
-      <Square
-        ml="auto"
-        size="30px"
-        style={{ float: "left" }}
+      <IconButton
+        aria-label="reading"
+        icon={<LuBookOpenText />}
+        variant="ghost"
+        color="whiteAlpha.700"
+        _hover={{ bg: "whiteAlpha.200", color: "white" }}
+        size="sm"
+        borderRadius="lg"
         onClick={() => setScreen(2)}
-      >
-        <Menu>
-          <MenuButton
-            as={IconButton}
-            _hover={{ bg: "gray.500", color: "white" }}
-            icon={<LuBookOpenText />}
-            size="sm"
-            w="100%"
-            h="100%"
-            colorScheme="grey.600"
-          />
-        </Menu>
-      </Square>
+      />
+
+      <Divider orientation="vertical" h="20px" borderColor="whiteAlpha.200" />
 
       <Spacer />
 
-      {/* ← upload moved here */}
+      {/* right — settings + notes */}
+      {/* upload */}
       {accessToken && (
-        <Square size="30px">
-          <label
-            htmlFor="file-input"
-            style={{
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: "100%",
-              height: "100%",
-            }}
-          >
-            <Icon as={MdOutlineFileUpload} />
+        <Box>
+          <label htmlFor="file-input">
+            <IconButton
+              as="span"
+              aria-label="upload"
+              icon={<MdOutlineFileUpload />}
+              variant="outline"
+              color="whiteAlpha.800"
+              borderColor="whiteAlpha.300"
+              _hover={{ bg: "whiteAlpha.200", color: "white" }}
+              size="sm"
+              borderRadius="lg"
+              cursor="pointer"
+            />
           </label>
           <Input
             type="file"
@@ -177,8 +169,29 @@ export function NavBar({ setScreen }: { setScreen: (screen: number) => void }) {
             id="file-input"
             onChange={onFileChange}
           />
-        </Square>
+        </Box>
       )}
+      <IconButton
+        aria-label="settings"
+        icon={<GoGear />}
+        variant="ghost"
+        color="whiteAlpha.700"
+        _hover={{ bg: "whiteAlpha.200", color: "white" }}
+        size="sm"
+        borderRadius="lg"
+        onClick={() => setScreen(1)}
+      />
+
+      <IconButton
+        aria-label="notes"
+        icon={<GrNotes />}
+        variant="ghost"
+        color="whiteAlpha.700"
+        _hover={{ bg: "whiteAlpha.200", color: "white" }}
+        size="sm"
+        borderRadius="lg"
+        onClick={() => setScreen(3)}
+      />
 
       {/* confirm dialog */}
       {selectedFile && (
@@ -187,14 +200,16 @@ export function NavBar({ setScreen }: { setScreen: (screen: number) => void }) {
           bottom={4}
           left="50%"
           transform="translateX(-50%)"
-          bg="gray.700"
+          bg="gray.800"
+          border="1px solid"
+          borderColor="whiteAlpha.200"
           p={3}
-          borderRadius="md"
+          borderRadius="xl"
           gap={3}
           alignItems="center"
           zIndex={20}
         >
-          <Text color="white" fontSize="sm">
+          <Text color="whiteAlpha.800" fontSize="sm" maxW="200px" noOfLines={1}>
             {selectedFile.name}
           </Text>
           <Button size="xs" colorScheme="blue" onClick={onUploadConfirm}>
@@ -203,39 +218,13 @@ export function NavBar({ setScreen }: { setScreen: (screen: number) => void }) {
           <Button
             size="xs"
             variant="ghost"
-            color="white"
+            color="whiteAlpha.600"
             onClick={() => setSelectedFile(null)}
           >
             Cancel
           </Button>
         </Flex>
       )}
-
-      <Square size="30px" onClick={() => setScreen(1)}>
-        <IconButton
-          variant="solid"
-          aria-label="setting"
-          colorScheme="gray.400"
-          icon={<GoGear />}
-          size="sm"
-          _hover={{ bg: "gray.500", color: "white" }}
-          w="100%"
-          h="100%"
-        />
-      </Square>
-
-      <Square size="30px" onClick={() => setScreen(3)}>
-        <IconButton
-          variant="solid"
-          aria-label="setting"
-          colorScheme="gray.400"
-          icon={<GrNotes />}
-          size="sm"
-          _hover={{ bg: "gray.500", color: "white" }}
-          w="100%"
-          h="100%"
-        />
-      </Square>
     </Flex>
   );
 }
@@ -246,14 +235,22 @@ function BookCard({ file, id }: { file: Book; id: string }) {
 
   const coverUrl = URL.createObjectURL(file.cover as Blob);
   function handleDelete(id: string) {}
+  // BookCard
   return (
     <Card
       className="book-card"
-      width="150px"
-      minW="120px"
+      width="160px"
       position="relative"
-      style={{ cursor: "pointer" }}
-      m={8}
+      cursor="pointer"
+      borderRadius="xl"
+      overflow="hidden"
+      border="0.5px solid"
+      borderColor="gray.200"
+      transition="transform 0.15s"
+      _hover={{
+        transform: "translateY(-3px)",
+        "& .delete-btn": { opacity: 1 },
+      }}
       onClick={() => {
         setId(id);
         setScreen(2);
@@ -264,29 +261,32 @@ function BookCard({ file, id }: { file: Book; id: string }) {
           src={coverUrl}
           alt="Book Cover"
           width="100%"
-          height="200px"
-          borderRadius="sm"
+          height="220px"
+          objectFit="cover"
+          fallback={<Box w="100%" h="220px" bg="gray.100" />}
         />
-
-        {/* Delete icon */}
         <IconButton
+          className="delete-btn"
           icon={<DeleteIcon />}
           position="absolute"
-          top="2"
-          right="2"
-          size="sm"
-          colorScheme="red"
+          top={2}
+          right={2}
+          size="xs"
+          borderRadius="lg"
+          bg="blackAlpha.600"
+          color="white"
+          opacity={0}
+          transition="opacity 0.15s"
+          _hover={{ bg: "red.500" }}
           aria-label="Delete book"
           onClick={(e) => {
-            e.stopPropagation(); // Prevent card click event
-            handleDelete(id); // Your delete function
+            e.stopPropagation();
+            handleDelete(id);
           }}
         />
       </CardBody>
-
-      {/* Title below the cover */}
-      <Box width="100%" color="white" p={2} borderBottomRadius="sm">
-        <Text fontSize="sm" noOfLines={2} color="black" fontWeight={450}>
+      <Box p={3}>
+        <Text fontSize="sm" fontWeight={500} noOfLines={2} lineHeight="short">
           {file.title}
         </Text>
       </Box>
@@ -302,7 +302,7 @@ function Gallery() {
     setIsLoggedIn(true);
     window.location.reload();
   });
-
+  const [search, setSearch] = useState("");
   const accessToken = localStorage.getItem("gdrive_access_token");
   useGetGDriveFiles(accessToken!); // ← always called, handle null inside the hook
 
@@ -328,11 +328,39 @@ function Gallery() {
   }
 
   return (
-    <Flex wrap="wrap" p={4} gap={4}>
-      {Array.from(MemoBooks.books.entries()).map(([id, file]) => (
-        <BookCard key={id} id={id} file={file} />
-      ))}
-    </Flex>
+    <>
+      <Box
+        position="sticky"
+        top="44px" // ← below navbar
+        zIndex={9}
+        px={4}
+        py={2}
+        bg="white"
+        borderBottom="1px solid"
+        borderColor="gray.100"
+      >
+        <InputGroup maxW="400px" mx="auto">
+          <InputLeftElement pointerEvents="none">
+            <SearchIcon color="gray.400" />
+          </InputLeftElement>
+          <Input
+            placeholder="Search books..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            borderRadius="full"
+            bg="gray.50"
+            border="1px solid"
+            borderColor="gray.200"
+            _focus={{ borderColor: "gray.400", bg: "white" }}
+          />
+        </InputGroup>
+      </Box>
+      <Flex wrap="wrap" p={4} gap={4}>
+        {Array.from(MemoBooks.books.entries()).map(([id, file]) => (
+          <BookCard key={id} id={id} file={file} />
+        ))}
+      </Flex>
+    </>
   );
 }
 function ReadingScreen({ id }: { id: string | number | null }) {
