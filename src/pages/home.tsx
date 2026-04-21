@@ -1,45 +1,48 @@
 import {
   DeleteIcon,
   Flex,
-  Square,
   ChevronDownIcon,
   ChevronUpIcon,
   SearchIcon,
 } from "@chakra-ui/icons";
 import { GoGear } from "react-icons/go";
-import {
-  MdOutlineDriveFolderUpload,
-  MdOutlineFileUpload,
-} from "react-icons/md";
+import { MdOutlineFileUpload } from "react-icons/md";
 import {
   IconButton,
   Card,
   CardBody,
   Text,
-  Menu,
-  MenuButton,
-  MenuList,
-  MenuItem,
   Image,
-  SlideFade,
-  useDisclosure,
   Box,
   Button,
   Input,
-  Icon,
   Spacer,
   Divider,
-  SimpleGrid,
   InputGroup,
   InputLeftElement,
+  useDisclosure,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalCloseButton,
+  ModalBody,
+  ModalFooter,
 } from "@chakra-ui/react";
 import { TbBrandGoogleDrive } from "react-icons/tb";
 import { IoHomeOutline } from "react-icons/io5";
 import "../index.css";
-import { useGetGDriveFiles } from "../hooks/GDriveHooks/GetGDriveFilesHook";
-import { cache, MemoBooks, type Book } from "../db/memory_db/memory_db";
+import { useGetGDriveFiles } from "../hooks/GDriveHooks/useGetGDriveFiles";
+import { cache, type Book } from "../db/memory_db/memory_db";
 import { ReadingContext, ReadingProvider } from "../contexts/reading_context";
-import { useContext, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type SetStateAction,
+} from "react";
 import DOMPurify from "dompurify";
 import { ThemeContext } from "../contexts/theme_context";
 import Setting from "./setting";
@@ -51,6 +54,8 @@ import { GrNotes } from "react-icons/gr";
 import { ScreenContext } from "../contexts/screen_context";
 import { SignalContext } from "../contexts/signal_context";
 import { useGoogleLogin } from "../services/google_login.service";
+import useDeleteGDriveFile from "../hooks/GDriveHooks/useDeleteGDriveFile";
+
 export function Manage() {
   return (
     <ReadingProvider>
@@ -60,19 +65,34 @@ export function Manage() {
 }
 
 function Home() {
+  const accessToken = localStorage.getItem("gdrive_access_token");
   const { id } = useContext(ReadingContext);
+  const { gdriveFiles } = useGetGDriveFiles(accessToken!);
+  const [books, setBooks] = useState<Map<string, Book>>(new Map());
+
+  useEffect(() => {
+    if (!gdriveFiles) return;
+
+    setBooks(gdriveFiles);
+  }, [gdriveFiles]);
   /* gallery: home, 1: setting, 2: reading */
   const { screen, setScreen } = useContext(ScreenContext);
   const renderScreen = () => {
     switch (screen) {
       case 0:
-        return <Gallery />;
+        return (
+          <Gallery
+            books={books}
+            BookCardComponent={BookCard}
+            setBooks={setBooks}
+          />
+        );
       case 1:
         return <Setting />;
       case 2:
-        return <ReadingScreen id={id} />;
+        return <ReadingScreen id={id} books={books} />;
       case 3:
-        return <Notes />;
+        return <Notes books={books} />;
       default:
         return null;
     }
@@ -228,13 +248,20 @@ export function NavBar({ setScreen }: { setScreen: (screen: number) => void }) {
     </Flex>
   );
 }
-function BookCard({ file, id }: { file: Book; id: string }) {
+function BookCard({
+  file,
+  id,
+  onDelete,
+}: {
+  file: Book;
+  id: string;
+  onDelete: (id: string) => void;
+}) {
   const { setId } = useContext(ReadingContext);
   const { setScreen } = useContext(ScreenContext);
   if (!file) return <div className="book-card"></div>;
 
   const coverUrl = URL.createObjectURL(file.cover as Blob);
-  function handleDelete(id: string) {}
   // BookCard
   return (
     <Card
@@ -281,7 +308,7 @@ function BookCard({ file, id }: { file: Book; id: string }) {
           aria-label="Delete book"
           onClick={(e) => {
             e.stopPropagation();
-            handleDelete(id);
+            onDelete(file.parents?.[0] as string);
           }}
         />
       </CardBody>
@@ -294,18 +321,30 @@ function BookCard({ file, id }: { file: Book; id: string }) {
   );
 }
 
-function Gallery() {
-  const [, setIsLoggedIn] = useState(
-    !!localStorage.getItem("gdrive_access_token"),
-  );
+function Gallery({
+  books,
+  BookCardComponent,
+  setBooks,
+}: {
+  books: Map<string, Book>;
+  BookCardComponent: React.ComponentType<{
+    id: string;
+    file: Book;
+    onDelete: (id: string) => void;
+  }>;
+  setBooks: React.Dispatch<React.SetStateAction<Map<string, Book>>>;
+}) {
+  const accessToken = localStorage.getItem("gdrive_access_token");
+  const [, setIsLoggedIn] = useState(!!accessToken);
   const { login } = useGoogleLogin(() => {
     setIsLoggedIn(true);
     window.location.reload();
   });
-  const [search, setSearch] = useState("");
-  const accessToken = localStorage.getItem("gdrive_access_token");
-  useGetGDriveFiles(accessToken!); // ← always called, handle null inside the hook
+  const { isOpen, onOpen, onClose } = useDisclosure();
+  const { deleteFile } = useDeleteGDriveFile(accessToken!);
 
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
   if (!accessToken) {
     return (
       <Flex
@@ -327,6 +366,22 @@ function Gallery() {
     );
   }
 
+  function handleDeleteClick(id: string) {
+    setDeleteId(id);
+    onOpen();
+  }
+
+  function handleDeleteConfirm() {
+    if (!deleteId) return;
+
+    setBooks(
+      (prev) =>
+        new Map(Array.from(prev.entries()).filter(([id]) => id !== deleteId)),
+    );
+
+    deleteFile(deleteId); // your API call
+    onClose();
+  }
   return (
     <>
       <Box
@@ -356,15 +411,46 @@ function Gallery() {
         </InputGroup>
       </Box>
       <Flex wrap="wrap" p={4} gap={4}>
-        {Array.from(MemoBooks.books.entries()).map(([id, file]) => (
-          <BookCard key={id} id={id} file={file} />
+        {Array.from(books.entries()).map(([id, file]) => (
+          <BookCardComponent
+            key={id}
+            id={id}
+            file={file}
+            onDelete={handleDeleteClick}
+          />
         ))}
       </Flex>
+
+      {/* single modal for all cards */}
+      <Modal isOpen={isOpen} onClose={onClose} isCentered>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Delete book</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <Text>Are you sure you want to delete this book?</Text>
+          </ModalBody>
+          <ModalFooter>
+            <Button mr={3} onClick={onClose}>
+              Cancel
+            </Button>
+            <Button colorScheme="red" onClick={handleDeleteConfirm}>
+              Delete
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </>
   );
 }
-function ReadingScreen({ id }: { id: string | number | null }) {
-  const book = MemoBooks.books.get(id as string) as Book;
+function ReadingScreen({
+  id,
+  books,
+}: {
+  id: string | number | null;
+  books: Map<string, Book>;
+}) {
+  const book = books.get(id as string) as Book;
   const { theme } = useContext(ThemeContext);
   const contentRef = useRef<HTMLDivElement>(null);
   const selectionRef = useRef<SelectedData | null>(null);
@@ -520,24 +606,28 @@ function ReadingScreen({ id }: { id: string | number | null }) {
     if (!book.content) return null;
     return Array.from(book.content)
       .map(([key, value]) => {
+        if (value.startsWith("blob:")) return null;
+
         const bodyMatch = value.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
         const bodyContent = bodyMatch ? bodyMatch[1].trim() : value.trim();
 
         if (!bodyContent || bodyContent.replace(/<[^>]*>/g, "").trim() === "")
           return null;
-
         return (
           <div key={key} data-key={key} id={key}>
             <div
               dangerouslySetInnerHTML={{
-                __html: DOMPurify.sanitize(bodyContent),
+                __html: DOMPurify.sanitize(bodyContent, {
+                  ALLOWED_URI_REGEXP:
+                    /^(?:(?:blob|https?|ftp|mailto):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
+                }),
               }}
             />
           </div>
         );
       })
       .filter(Boolean);
-  }, [id, book.content]);
+  }, [book.content]); // ← depend on content not id
 
   function addNote() {
     if (!selectionRef.current || !popoverRef.current) return;
@@ -647,7 +737,7 @@ function ReadingScreen({ id }: { id: string | number | null }) {
   );
 }
 
-function Notes() {
+function Notes({ books }: { books: Map<string, Book> }) {
   const [noteText, setNoteText] = useState("");
   const [expandedBooks, setExpandedBooks] = useState(new Set());
   function handleSave(book: Book, index: number) {
@@ -674,7 +764,7 @@ function Notes() {
 
   return (
     <Box p={6}>
-      {Array.from(MemoBooks.books.entries()).map(([bookId, book]) => (
+      {Array.from(books.entries()).map(([bookId, book]) => (
         <Box key={bookId} mb={8}>
           {/* Book header with dropdown toggle */}
           <Flex

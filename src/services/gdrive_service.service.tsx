@@ -1,6 +1,5 @@
-import { MemoBooks } from "../db/memory_db/memory_db";
+import { Toast, useToast } from "@chakra-ui/react";
 import type { GDriveFile } from "../models/gdrive_file";
-import type { GDriveFileList } from "../models/gdrive_file_list";
 import type { Metadata } from "../models/metadata";
 import { RootFolder } from "../models/root_folder";
 import { SelectedData } from "../models/selected_data";
@@ -263,5 +262,17 @@ export class GDriveService {
     if (!res.ok) {
       console.error("Error syncing metadata: ", res.statusText);
     }
+  }
+
+  static async DeleteBook(fileId: string, accessToken: string) {
+    const query = `${import.meta.env.VITE_GDRIVE_FILE_LIST_ENDPOINT}/${fileId}`;
+    const res = await fetch(query, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+    });
+    return res;
   }
 }
