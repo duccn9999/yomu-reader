@@ -35,14 +35,7 @@ import "../index.css";
 import { useGetGDriveFiles } from "../hooks/GDriveHooks/useGetGDriveFiles";
 import { cache, type Book } from "../db/memory_db/memory_db";
 import { ReadingContext, ReadingProvider } from "../contexts/reading_context";
-import {
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type SetStateAction,
-} from "react";
+import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 import DOMPurify from "dompurify";
 import { ThemeContext } from "../contexts/theme_context";
 import Setting from "./setting";
@@ -67,14 +60,8 @@ export function Manage() {
 function Home() {
   const accessToken = localStorage.getItem("gdrive_access_token");
   const { id } = useContext(ReadingContext);
-  const { gdriveFiles } = useGetGDriveFiles(accessToken!);
-  const [books, setBooks] = useState<Map<string, Book>>(new Map());
+  const [books, setBooks] = useGetGDriveFiles(accessToken!);
 
-  useEffect(() => {
-    if (!gdriveFiles) return;
-
-    setBooks(gdriveFiles);
-  }, [gdriveFiles]);
   /* gallery: home, 1: setting, 2: reading */
   const { screen, setScreen } = useContext(ScreenContext);
   const renderScreen = () => {
@@ -248,19 +235,18 @@ export function NavBar({ setScreen }: { setScreen: (screen: number) => void }) {
     </Flex>
   );
 }
-function BookCard({
+const BookCard = React.memo(function BookCard({
   file,
   id,
   onDelete,
 }: {
   file: Book;
   id: string;
-  onDelete: (id: string) => void;
+  onDelete: (parent: string, id: string) => void;
 }) {
   const { setId } = useContext(ReadingContext);
   const { setScreen } = useContext(ScreenContext);
   if (!file) return <div className="book-card"></div>;
-
   const coverUrl = URL.createObjectURL(file.cover as Blob);
   // BookCard
   return (
@@ -308,7 +294,7 @@ function BookCard({
           aria-label="Delete book"
           onClick={(e) => {
             e.stopPropagation();
-            onDelete(file.parents?.[0] as string);
+            onDelete(file.parents?.[0] as string, id);
           }}
         />
       </CardBody>
@@ -319,8 +305,7 @@ function BookCard({
       </Box>
     </Card>
   );
-}
-
+});
 function Gallery({
   books,
   BookCardComponent,
@@ -330,7 +315,7 @@ function Gallery({
   BookCardComponent: React.ComponentType<{
     id: string;
     file: Book;
-    onDelete: (id: string) => void;
+    onDelete: (parent: string, id: string) => void;
   }>;
   setBooks: React.Dispatch<React.SetStateAction<Map<string, Book>>>;
 }) {
@@ -343,8 +328,12 @@ function Gallery({
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { deleteFile } = useDeleteGDriveFile(accessToken!);
 
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteParent, setDeleteParent] = useState<string | null>(null);
+  const [deleteId, setDeleteid] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [filteredBooks, setFilteredBooks] = useState<Map<string, Book>>(
+    new Map(),
+  );
   if (!accessToken) {
     return (
       <Flex
@@ -366,20 +355,34 @@ function Gallery({
     );
   }
 
-  function handleDeleteClick(id: string) {
-    setDeleteId(id);
+  useEffect(() => {
+    if (!search) {
+      setFilteredBooks(new Map(books)); // show all
+      return;
+    }
+
+    const query = search.toLowerCase();
+
+    const filtered = new Map(
+      Array.from(books.entries()).filter(([_, book]) =>
+        book.title.toLowerCase().includes(query),
+      ),
+    );
+
+    setFilteredBooks(filtered);
+  }, [search, books]);
+  function handleDeleteClick(parent: string, id: string) {
+    setDeleteParent(parent);
+    setDeleteid(id);
     onOpen();
   }
 
   function handleDeleteConfirm() {
-    if (!deleteId) return;
+    if (!deleteId || !deleteParent) return;
 
-    setBooks(
-      (prev) =>
-        new Map(Array.from(prev.entries()).filter(([id]) => id !== deleteId)),
-    );
-
-    deleteFile(deleteId); // your API call
+    books.delete(deleteId);
+    setBooks(books);
+    deleteFile(deleteParent);
     onClose();
   }
   return (
@@ -411,7 +414,7 @@ function Gallery({
         </InputGroup>
       </Box>
       <Flex wrap="wrap" p={4} gap={4}>
-        {Array.from(books.entries()).map(([id, file]) => (
+        {Array.from(filteredBooks.entries()).map(([id, file]) => (
           <BookCardComponent
             key={id}
             id={id}
@@ -461,6 +464,7 @@ function ReadingScreen({
   const ctx = useContext(SignalContext);
   if (!ctx) throw new Error("SignalContext not found");
   const { trigger } = ctx;
+
   if (!book) return <div style={{ textAlign: "center" }}>Loading....</div>;
   function getNodePath(node: Node, root: Node): number[] {
     const path: number[] = [];
@@ -604,13 +608,14 @@ function ReadingScreen({
 
   const renderedContent = useMemo(() => {
     if (!book.content) return null;
-    return Array.from(book.content)
+
+    console.log("ts cached");
+
+    const result = Array.from(book.content)
       .map(([key, value]) => {
         if (value.startsWith("blob:")) return null;
-
         const bodyMatch = value.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
         const bodyContent = bodyMatch ? bodyMatch[1].trim() : value.trim();
-
         if (!bodyContent || bodyContent.replace(/<[^>]*>/g, "").trim() === "")
           return null;
         return (
@@ -627,8 +632,8 @@ function ReadingScreen({
         );
       })
       .filter(Boolean);
-  }, [book.content]); // ← depend on content not id
-
+    return result;
+  }, [id]);
   function addNote() {
     if (!selectionRef.current || !popoverRef.current) return;
     const selection = selectionRef.current;

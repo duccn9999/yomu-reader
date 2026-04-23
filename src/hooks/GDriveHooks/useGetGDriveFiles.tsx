@@ -6,22 +6,21 @@ import { XMLParser } from "fast-xml-parser";
 import { cache, type Book } from "../../db/memory_db/memory_db";
 import type { Metadata } from "../../models/metadata";
 
-// module level cache
-const booksCache = new Map<string, Book>();
-let isFetched = false;
-
-export function useGetGDriveFiles(accessToken: string) {
-  const [gdriveFiles, setGdriveFiles] = useState<Map<string, Book>>(
-    new Map(booksCache),
-  );
-
+export function useGetGDriveFiles(
+  accessToken: string,
+): [
+  Map<string, Book>,
+  React.Dispatch<React.SetStateAction<Map<string, Book>>>,
+] {
   const parser = new XMLParser({
     ignoreAttributes: false,
     attributeNamePrefix: "@_",
     removeNSPrefix: true,
   });
+  const [books, setBooks] = useState<Map<string, Book>>(new Map());
   const domParser = new DOMParser();
-
+  let isFetched = false;
+  const booksCache = new Map<string, Book>();
   useEffect(() => {
     if (isFetched) return;
     isFetched = true;
@@ -141,8 +140,8 @@ export function useGetGDriveFiles(accessToken: string) {
         }
 
         booksCache.set(bookId, book);
-        if (!cancelled) setGdriveFiles(new Map(booksCache)); // ← progressive update per book
       }
+      if (!cancelled) setBooks(booksCache);
     }
 
     init();
@@ -151,5 +150,5 @@ export function useGetGDriveFiles(accessToken: string) {
     };
   }, []);
 
-  return { gdriveFiles };
+  return [books, setBooks];
 }
