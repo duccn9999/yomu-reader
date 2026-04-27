@@ -23,31 +23,31 @@ import {
   SimpleGrid,
   FormLabel,
   FormControl,
-} from "@chakra-ui/react";
-import { ThemeContext } from "../contexts/theme_context";
-import { useContext, useEffect, useState } from "react";
-import { QuestionIcon } from "@chakra-ui/icons";
-import { DbContext } from "../contexts/db_context";
-import type { Theme } from "../models/theme";
-import { addTheme, getThemes, updateTheme } from "../db/yomu_reader_db";
+} from '@chakra-ui/react'
+import { QuestionIcon } from '@chakra-ui/icons'
+import { useContext, useEffect, useState } from 'react'
+import { ThemeContext } from '../contexts/providers/theme_context_provider'
+import type { Theme } from '../models/theme'
+import { Db } from '../db/yomu_reader_db'
+import { DbContext } from '../contexts/providers/db_context_provider'
 
 export default function Setting() {
-  const { theme, setTheme } = useContext(ThemeContext);
-  const { db } = useContext(DbContext)!;
-  const [themes, setThemes] = useState<(Theme & { id: number })[]>([]);
-  const { isOpen, onOpen, onClose } = useDisclosure();
-  const toast = useToast();
+  const { theme, setTheme } = useContext(ThemeContext)
+  const { db } = useContext(DbContext)!
+  const [themes, setThemes] = useState<(Theme & { id: number })[]>([])
+  const { isOpen, onOpen, onClose } = useDisclosure()
+  const toast = useToast()
   useEffect(() => {
-    if (!db) return;
+    if (!db) return
     async function fetchThemes() {
-      const themes = await getThemes(db as IDBDatabase);
-      setThemes(themes as (Theme & { id: number })[]);
+      const themes = await Db.getThemes(db as IDBDatabase)
+      setThemes(themes as (Theme & { id: number })[])
     }
-    fetchThemes();
-  }, []);
+    fetchThemes()
+  }, [])
 
   if (!db) {
-    return <div>Loading...</div>;
+    return <div>Loading...</div>
   }
   async function SaveTheme() {
     const newTheme: Theme = {
@@ -59,81 +59,81 @@ export default function Setting() {
       padding: theme.padding,
       font: theme.font,
       fontSize: theme.fontSize,
-    };
-    await addTheme(db as IDBDatabase, newTheme)
+    }
+    await Db.addTheme(db as IDBDatabase, newTheme)
       .then(() => {
-        onClose();
+        onClose()
         toast({
-          title: "Theme saved.",
-          description: "Your theme has been saved successfully.",
-          status: "success",
+          title: 'Theme saved.',
+          description: 'Your theme has been saved successfully.',
+          status: 'success',
           duration: 3000,
           isClosable: true,
-          position: "top-right",
+          position: 'top-right',
           containerStyle: {
-            marginTop: "40px", // ← push it below the navbar
+            marginTop: '40px', // ← push it below the navbar
           },
-        });
+        })
       })
       .catch((err) => {
         toast({
-          title: "Error saving theme.",
+          title: 'Error saving theme.',
           description: `An error occurred while saving the theme. ${err.message}`,
-          status: "error",
+          status: 'error',
           duration: 3000,
           isClosable: true,
-          position: "top-right",
+          position: 'top-right',
           containerStyle: {
-            marginTop: "40px", // ← push it below the navbar
+            marginTop: '40px', // ← push it below the navbar
           },
-        });
-      });
-    const themes = await getThemes(db as IDBDatabase);
-    setThemes(themes as (Theme & { id: number })[]);
+        })
+      })
+    const themes = await Db.getThemes(db as IDBDatabase)
+    setThemes(themes as (Theme & { id: number })[])
   }
 
   async function UpdateTheme() {
-    if (!theme.id) return;
-    await updateTheme(db as IDBDatabase, theme)
+    if (!theme.id) return
+    await Db.updateTheme(db as IDBDatabase, theme)
       .then(() => {
-        onClose();
+        onClose()
         toast({
-          title: "Theme updated.",
-          description: "Your theme has been updated successfully.",
-          status: "success",
+          title: 'Theme updated.',
+          description: 'Your theme has been updated successfully.',
+          status: 'success',
           duration: 3000,
           isClosable: true,
-          position: "top-right",
+          position: 'top-right',
           containerStyle: {
-            marginTop: "40px",
+            marginTop: '40px',
           },
-        });
+        })
       })
       .catch((err) => {
         toast({
-          title: "Error updating theme.",
+          title: 'Error updating theme.',
           description: `An error occurred while updating the theme. ${err.message}`,
-          status: "error",
+          status: 'error',
           duration: 3000,
           isClosable: true,
-          position: "top-right",
+          position: 'top-right',
           containerStyle: {
-            marginTop: "40px",
+            marginTop: '40px',
           },
-        });
-      });
-    const themes = await getThemes(db as IDBDatabase);
-    setThemes(themes as (Theme & { id: number })[]);
+        })
+      })
+    const themes = await Db.getThemes(db as IDBDatabase)
+    setThemes(themes as (Theme & { id: number })[])
   }
   return (
-    <Box maxW="900px" p={{ base: 3, md: 5 }} margin="auto">
+    <Box maxW='900px' p={{ base: 3, md: 5 }} margin='auto'>
       <Text
-        fontSize="2xl"
-        fontWeight="bold"
+        fontSize='2xl'
+        fontWeight='bold'
         mb={5}
         pb={3}
-        borderBottom="1px solid"
-        borderColor="gray.200"
+        borderBottom='1px solid'
+        borderColor='gray.200'
       >
         Settings
       </Text>
@@ -141,32 +141,32 @@ export default function Setting() {
       {/* Theme */}
       <Box mb={6}>
         <Text
-          fontSize="xs"
+          fontSize='xs'
           fontWeight={500}
-          textTransform="uppercase"
-          letterSpacing="wide"
-          color="gray.500"
+          textTransform='uppercase'
+          letterSpacing='wide'
+          color='gray.500'
           mb={3}
         >
           Theme
         </Text>
-        <Box p={4} border="1px solid" borderColor="gray.200" borderRadius="lg">
+        <Box p={4} border='1px solid' borderColor='gray.200' borderRadius='lg'>
           <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
             {themes.length > 0 && (
               <FormControl>
-                <FormLabel fontSize="sm">Theme preset</FormLabel>
+                <FormLabel fontSize='sm'>Theme preset</FormLabel>
                 <Select
-                  size="sm"
+                  size='sm'
                   value={theme.id}
                   onChange={(e) => {
                     const t = themes.find(
                       (t) => t.id === parseInt(e.target.value),
-                    );
-                    if (t) setTheme(t);
+                    )
+                    if (t) setTheme(t)
                   }}
                 >
                   {themes.map((t) => (
-                    <option key={t.id} value={t.id}>
+                    <option key={t.id} value={t.id} selected={t.isSelected}>
                       {t.name}
                     </option>
                   ))}
@@ -174,11 +174,11 @@ export default function Setting() {
               </FormControl>
             )}
             <FormControl>
-              <FormLabel fontSize="sm">Background</FormLabel>
+              <FormLabel fontSize='sm'>Background</FormLabel>
               <Input
                 p={0}
-                type="color"
-                size="sm"
+                type='color'
+                size='sm'
                 value={theme.bgColor}
                 onChange={(e) =>
                   setTheme({ ...theme, bgColor: e.target.value })
@@ -186,11 +186,11 @@ export default function Setting() {
               />
             </FormControl>
             <FormControl>
-              <FormLabel fontSize="sm">Text color</FormLabel>
+              <FormLabel fontSize='sm'>Text color</FormLabel>
               <Input
                 p={0}
-                type="color"
-                size="sm"
+                type='color'
+                size='sm'
                 value={theme.txtColor}
                 onChange={(e) =>
                   setTheme({ ...theme, txtColor: e.target.value })
@@ -198,23 +198,23 @@ export default function Setting() {
               />
             </FormControl>
             <FormControl>
-              <FormLabel fontSize="sm">Text align</FormLabel>
+              <FormLabel fontSize='sm'>Text align</FormLabel>
               <Select
-                size="sm"
+                size='sm'
                 value={theme.txtAlign}
                 onChange={(e) =>
-                  setTheme({ ...theme, txtAlign: e.target.value as any })
+                  setTheme({ ...theme, txtAlign: e.target.value })
                 }
               >
-                <option value="left">Left</option>
-                <option value="center">Center</option>
-                <option value="right">Right</option>
-                <option value="justify">Justify</option>
+                <option value='left'>Left</option>
+                <option value='center'>Center</option>
+                <option value='right'>Right</option>
+                <option value='justify'>Justify</option>
               </Select>
             </FormControl>
             <FormControl>
-              <FormLabel fontSize="sm">Font size (px)</FormLabel>
-              <NumberInput size="sm" defaultValue={theme.fontSize}>
+              <FormLabel fontSize='sm'>Font size (px)</FormLabel>
+              <NumberInput size='sm' defaultValue={theme.fontSize}>
                 <NumberInputField
                   onChange={(e) =>
                     setTheme({ ...theme, fontSize: parseInt(e.target.value) })
@@ -233,27 +233,27 @@ export default function Setting() {
       {/* Padding */}
       <Box mb={6}>
         <Text
-          fontSize="xs"
+          fontSize='xs'
           fontWeight={500}
-          textTransform="uppercase"
-          letterSpacing="wide"
-          color="gray.500"
+          textTransform='uppercase'
+          letterSpacing='wide'
+          color='gray.500'
           mb={3}
         >
-          Padding{" "}
-          <Tooltip label="Space inside the text area">
+          Padding{' '}
+          <Tooltip label='Space inside the text area'>
             <QuestionIcon ml={1} />
           </Tooltip>
         </Text>
-        <Box p={4} border="1px solid" borderColor="gray.200" borderRadius="lg">
+        <Box p={4} border='1px solid' borderColor='gray.200' borderRadius='lg'>
           <SimpleGrid columns={{ base: 2, md: 4 }} spacing={4}>
-            {["top", "right", "bottom", "left"].map((side) => (
+            {['top', 'right', 'bottom', 'left'].map((side) => (
               <FormControl key={side}>
-                <FormLabel fontSize="sm" textTransform="capitalize">
+                <FormLabel fontSize='sm' textTransform='capitalize'>
                   {side}
                 </FormLabel>
                 <NumberInput
-                  size="sm"
+                  size='sm'
                   defaultValue={
                     theme.padding[side as keyof typeof theme.padding]
                   }
@@ -283,27 +283,27 @@ export default function Setting() {
       {/* Margin */}
       <Box mb={6}>
         <Text
-          fontSize="xs"
+          fontSize='xs'
           fontWeight={500}
-          textTransform="uppercase"
-          letterSpacing="wide"
-          color="gray.500"
+          textTransform='uppercase'
+          letterSpacing='wide'
+          color='gray.500'
           mb={3}
         >
-          Margin{" "}
-          <Tooltip label="Space around the text area">
+          Margin{' '}
+          <Tooltip label='Space around the text area'>
             <QuestionIcon ml={1} />
           </Tooltip>
         </Text>
-        <Box p={4} border="1px solid" borderColor="gray.200" borderRadius="lg">
+        <Box p={4} border='1px solid' borderColor='gray.200' borderRadius='lg'>
           <SimpleGrid columns={{ base: 2, md: 4 }} spacing={4}>
-            {["top", "right", "bottom", "left"].map((side) => (
+            {['top', 'right', 'bottom', 'left'].map((side) => (
               <FormControl key={side}>
-                <FormLabel fontSize="sm" textTransform="capitalize">
+                <FormLabel fontSize='sm' textTransform='capitalize'>
                   {side}
                 </FormLabel>
                 <NumberInput
-                  size="sm"
+                  size='sm'
                   defaultValue={theme.margin[side as keyof typeof theme.margin]}
                 >
                   <NumberInputField
@@ -330,18 +330,18 @@ export default function Setting() {
 
       {/* Actions */}
       <Flex
-        justify="flex-end"
+        justify='flex-end'
         gap={2}
         pt={4}
-        borderTop="1px solid"
-        borderColor="gray.200"
+        borderTop='1px solid'
+        borderColor='gray.200'
       >
         {theme.id !== 1 && theme.id !== 2 && (
-          <Button size="sm" onClick={UpdateTheme}>
+          <Button size='sm' onClick={UpdateTheme}>
             Save
           </Button>
         )}
-        <Button size="sm" colorScheme="green" onClick={onOpen}>
+        <Button size='sm' colorScheme='green' onClick={onOpen}>
           Save As
         </Button>
       </Flex>
@@ -354,19 +354,19 @@ export default function Setting() {
           <ModalCloseButton />
           <ModalBody>
             <Input
-              placeholder="Theme name"
+              placeholder='Theme name'
               onChange={(e) => setTheme({ ...theme, name: e.target.value })}
             />
           </ModalBody>
           <ModalFooter>
-            <Button colorScheme="blue" mr={3} onClick={onClose}>
+            <Button colorScheme='blue' mr={3} onClick={onClose}>
               Close
             </Button>
             <Button
-              variant="ghost"
-              bg="green.400"
-              color="white"
-              _hover={{ bg: "green.500" }}
+              variant='ghost'
+              bg='green.400'
+              color='white'
+              _hover={{ bg: 'green.500' }}
               onClick={SaveTheme}
             >
               Save
@@ -375,5 +375,5 @@ export default function Setting() {
         </ModalContent>
       </Modal>
     </Box>
-  );
+  )
 }

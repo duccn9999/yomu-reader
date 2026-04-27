@@ -1,154 +1,138 @@
-import { useEffect, useState } from "react";
-import { GDriveService } from "../../services/gdrive_service.service";
-import type { EpubFile } from "../../models/epub_file";
-import { Unzip } from "../../services/epub_service.service";
-import { XMLParser } from "fast-xml-parser";
-import { cache, type Book } from "../../db/memory_db/memory_db";
-import type { Metadata } from "../../models/metadata";
+import { useEffect, useState } from 'react'
+import { GDriveService } from '../../services/gdrive_service.service'
+import { cache } from '../../db/memory_db/memory_db'
+import { EpubService } from '../../services/epub_service.service'
+import { Metadata } from '../../models/metadata'
+import { Book } from '../../models/book'
+import { Db } from '../../db/yomu_reader_db'
+import { BookContent } from '../../models/book_content'
+import { GenerateDummyImage } from '../../utils/dummy_image'
 
-export function useGetGDriveFiles(
-  accessToken: string,
-): [
-  Map<string, Book>,
-  React.Dispatch<React.SetStateAction<Map<string, Book>>>,
-] {
-  const parser = new XMLParser({
-    ignoreAttributes: false,
-    attributeNamePrefix: "@_",
-    removeNSPrefix: true,
-  });
-  const [books, setBooks] = useState<Map<string, Book>>(new Map());
-  const domParser = new DOMParser();
-  let isFetched = false;
-  const booksCache = new Map<string, Book>();
+export function useGetGDriveFiles(accessToken: string, db: IDBDatabase) {
+  const [books, setBooks] = useState<Map<string, Book>>(new Map())
+
   useEffect(() => {
-    if (isFetched) return;
-    isFetched = true;
-    let cancelled = false;
+    let cancelled = false
 
     async function init() {
+      const localBooksCache = new Map<string, Book>()
+
       const folderId = await GDriveService.CreateDirectory(
         accessToken,
         `${import.meta.env.VITE_ROOT_FOLDER_NAME}`,
-      );
-      if (!folderId || cancelled) return;
-      cache.root_folder_id = folderId;
+      )
 
-      const root = await GDriveService.GetRootFolder({ accessToken, folderId });
-      if (!root || !root.folders || cancelled) return;
+      if (!folderId || cancelled) return
 
-      for (const files of root.folders.values()) {
-        let book: Book = {} as Book;
-        let bookId = "";
+      cache.root_folder_id = folderId
+
+      const rootFolder = await GDriveService.GetRootFolder({
+        accessToken,
+        folderId,
+      })
+
+      if (!rootFolder || !rootFolder.folders || cancelled) return
+
+      for (const files of rootFolder.folders.values()) {
+        const book = new Book()
+        const bookContent = new BookContent()
+        let bookId = ''
 
         for (const file of files) {
-          bookId = file.id;
+          bookId = file.id
+
           const blob = await GDriveService.GetGDriveFileContent(
             bookId,
             accessToken,
-          );
-          if (!blob) continue;
+          )
 
-          if (file.mimeType === "application/epub+zip") {
-            const unzipData = await Unzip(blob);
-            const opfEntry = Array.from(unzipData.keys()).find((key) =>
-              key.endsWith("content.opf"),
-            );
-            const opfFile = opfEntry ? unzipData.get(opfEntry) : undefined;
-            const coverEntry = Array.from(unzipData.keys()).find((key) =>
-              key.toLowerCase().includes("cover"),
-            );
-            const coverFile = coverEntry
-              ? unzipData.get(coverEntry)
-              : undefined;
-            const opfData = parser.parse(
-              opfFile?.content as string,
-            ) as EpubFile | null;
-            if (!opfData) continue;
+          if (!blob) continue
 
-            const items = opfData.package.manifest.item;
-            const manifestMap = new Map(
-              items.map((item) => [item["@_id"], item["@_href"]]),
-            );
-            const bookContent = new Map<string, string>();
+          if (file.mimeType === 'application/epub+zip') {
+            const { title, cover, result, refs, imgSrcs } =
+              await EpubService.ExtractEpub(bookId, blob)
 
-            manifestMap.forEach((manifestItem, id) => {
-              const data =
-                unzipData.get(manifestItem) ??
-                unzipData.get(
-                  Array.from(unzipData.keys()).find((k) =>
-                    k.endsWith(manifestItem),
-                  ) ?? "",
-                );
+            for (const [key, value] of Object.entries(result)) {
+              if (typeof value === 'string') {
+                const filteredContent = replaceImgWithDummyImg(value, imgSrcs)
+                if (filteredContent.length == 0) continue
+                bookContent.chapters[key] = filteredContent
+              } else bookContent.blobs[key] = value
+            }
 
-              if (!data) return;
-
-              // handle images
-              if (
-                manifestItem.endsWith(".jpg") ||
-                manifestItem.endsWith(".jpeg") ||
-                manifestItem.endsWith(".png") ||
-                manifestItem.endsWith(".gif") ||
-                manifestItem.endsWith(".webp")
-              ) {
-                const blobUrl = URL.createObjectURL(data.content as Blob);
-                // ← store as styled img tag instead of raw blob url
-                bookContent.set(
-                  id,
-                  `<img src="${blobUrl}" style="max-width:100%;height:auto;display:block;margin:0 auto;" />`,
-                );
-                return;
-              }
-
-              // handle html/xhtml
-              const htmlStr = data.content as string;
-              const html = domParser.parseFromString(htmlStr, "text/html");
-
-              // replace img srcs with blob urls
-              html.querySelectorAll("img").forEach((img) => {
-                const src = img.getAttribute("src");
-                if (!src) return;
-                const imgEntry = Array.from(unzipData.entries()).find(([key]) =>
-                  key.endsWith(src.split("/").pop() ?? ""),
-                );
-                if (imgEntry) {
-                  const blobUrl = URL.createObjectURL(
-                    imgEntry[1].content as Blob,
-                  );
-                  img.setAttribute("src", blobUrl);
-                  img.style.maxWidth = "100%";
-                  img.style.height = "auto";
-                  img.style.display = "block";
-                  img.style.margin = "0 auto";
-                }
-              });
-
-              const body = html.body.innerHTML;
-              bookContent.set(id, body);
-            });
-            book.title = opfData.package.metadata.title;
-            book.cover = coverFile?.content as Blob | null;
-            book.content = bookContent;
-            book.parents = file.parents;
-          } else if (file.mimeType === "application/json") {
-            const text = await blob.text();
-            const jsonData: Metadata = JSON.parse(text);
-            book.notes = { noteId: file.id, data: jsonData.notes };
+            book.title = title
+            book.cover = cover
+            book.refs = refs
+            book.parents = file.parents
+            book.imgSrcs = Object.values(imgSrcs)
           }
 
-          if (cancelled) return;
+          if (file.mimeType === 'application/json') {
+            const text = await blob.text()
+            const jsonData: Metadata = JSON.parse(text)
+
+            bookContent.metadata = jsonData
+          }
+
+          if (cancelled) return
         }
 
-        booksCache.set(bookId, book);
+        await Db.addBook(db, {
+          id: bookId,
+          chapters: bookContent.chapters,
+          blobs: bookContent.blobs,
+          metadata: bookContent.metadata,
+        })
+
+        localBooksCache.set(bookId, book)
       }
-      if (!cancelled) setBooks(booksCache);
+
+      if (!cancelled) {
+        setBooks(localBooksCache)
+      }
     }
 
-    init();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    init()
 
-  return [books, setBooks];
+    return () => {
+      cancelled = true
+    }
+  }, [accessToken, db])
+
+  return [books, setBooks]
+}
+
+function replaceImgWithDummyImg(
+  html: string,
+  imgSrcs: Record<string, string>,
+): string {
+  const parser = new DOMParser()
+  let updatedHtml = ''
+  let htmlDom = parser.parseFromString(html, 'application/xhtml+xml')
+
+  // check if XHTML parsing failed
+  const parserError = htmlDom.querySelector('parsererror')
+
+  if (parserError) {
+    htmlDom = parser.parseFromString(html, 'text/html')
+  }
+
+  const imgs = htmlDom.querySelectorAll('img')
+  for (const img of imgs) {
+    const src = img.getAttribute('src')
+    if (!src) continue
+
+    const key = src.replace(/^(\.\.\/)+/, '')
+    const dummyUrl = GenerateDummyImage(imgSrcs[key])
+
+    img.setAttribute('src', dummyUrl)
+  }
+
+  if (htmlDom.contentType === 'application/xhtml+xml') {
+    updatedHtml = new XMLSerializer().serializeToString(htmlDom)
+  } else {
+    updatedHtml = htmlDom.documentElement.outerHTML
+  }
+
+  return updatedHtml
 }

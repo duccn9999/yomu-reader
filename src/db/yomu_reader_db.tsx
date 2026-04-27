@@ -1,160 +1,208 @@
-import type { Theme } from "../models/theme";
-import { DefaultValues } from "../utils/default_values";
+import type { BookContent } from '../models/book_content'
+import type { Theme } from '../models/theme'
+import { DefaultValues } from '../utils/default_values'
+import type { Book } from './memory_db/memory_db'
+export class Db {
+  static async OpenDB(): Promise<IDBDatabase> {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open('db', 1)
+      request.onupgradeneeded = (event) => {
+        const req = event.target as IDBOpenDBRequest
+        const db = req.result
+        const tx = req.transaction!
 
-export function OpenDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open("db", 1);
-    request.onupgradeneeded = (event) => {
-      const req = event.target as IDBOpenDBRequest;
-      const db = req.result;
-      const tx = req.transaction!;
+        if (!db.objectStoreNames.contains('books')) {
+          db.createObjectStore('books', {
+            keyPath: 'id',
+          })
+        }
+        if (!db.objectStoreNames.contains('themes')) {
+          db.createObjectStore('themes', {
+            keyPath: 'id',
+            autoIncrement: true,
+          })
 
-      if (!db.objectStoreNames.contains("books")) {
-        const books = db.createObjectStore("books", {
-          keyPath: "id",
-          autoIncrement: true,
-        });
+          const store = tx.objectStore('themes')
+          store.put(DefaultValues.lightTheme)
+          store.put(DefaultValues.darkTheme)
+          tx.oncomplete = () => {
+            console.log('Default themes added')
+          }
+        }
+        if (!db.objectStoreNames.contains('notes')) {
+          db.createObjectStore('books', {
+            keyPath: 'id',
+            autoIncrement: true,
+          })
+        }
+
+        if (!db.objectStoreNames.contains('settings')) {
+          db.createObjectStore('settings', {
+            keyPath: 'id',
+            autoIncrement: true,
+          })
+        }
       }
-      if (!db.objectStoreNames.contains("themes")) {
-        db.createObjectStore("themes", {
-          keyPath: "id",
-          autoIncrement: true,
-        });
 
-        const store = tx.objectStore("themes");
-        store.put(DefaultValues.lightTheme);
-        store.put(DefaultValues.darkTheme);
-        tx.oncomplete = () => {
-          console.log("Default themes added");
-        };
+      request.onsuccess = (event) => {
+        const db = (event.target as IDBOpenDBRequest).result
+        resolve(db)
       }
 
-      if (!db.objectStoreNames.contains("settings")) {
-        db.createObjectStore("settings", {
-          keyPath: "id",
-          autoIncrement: true,
-        });
+      request.onerror = (event) => {
+        reject((event.target as IDBOpenDBRequest).error)
       }
-    };
+    })
+  }
 
-    request.onsuccess = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      resolve(db);
-    };
+  static async addBook(db: IDBDatabase, book: BookContent) {
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction('books', 'readwrite')
+      const store = transaction.objectStore('books')
 
-    request.onerror = (event) => {
-      reject((event.target as IDBOpenDBRequest).error);
-    };
-  });
-}
+      const checkRequest = store.get(book.id)
 
-export function addBook(db: IDBDatabase, book: any) {
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction("books", "readwrite");
-    const store = transaction.objectStore("books");
-    const request = store.add(book);
+      checkRequest.onsuccess = () => {
+        if (checkRequest.result) {
+          // already exists
+          resolve('Book already exists')
+          return
+        }
 
-    request.onsuccess = () => {
-      resolve(request.result);
-    };
+        const addRequest = store.add(book)
 
-    request.onerror = () => {
-      reject(request.error);
-    };
-  });
-}
+        addRequest.onsuccess = () => {
+          resolve(addRequest.result)
+        }
 
-export function getBooks(db: IDBDatabase) {
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction("books", "readonly");
-    const store = transaction.objectStore("books");
-    const request = store.getAll();
+        addRequest.onerror = () => {
+          reject(addRequest.error)
+          db.close()
+        }
+      }
 
-    request.onsuccess = () => {
-      resolve(request.result);
-    };
+      checkRequest.onerror = () => {
+        reject(checkRequest.error)
+        db.close()
+      }
+    })
+  }
 
-    request.onerror = () => {
-      reject(request.error);
-    };
-  });
-}
+  static async getBooks(db: IDBDatabase) {
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction('books', 'readonly')
+      const store = transaction.objectStore('books')
+      const request = store.getAll()
 
-export function getTheme(db: IDBDatabase, id: number): Promise<Theme | null> {
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction("themes", "readonly");
-    const store = transaction.objectStore("themes");
-    if (!id) id = 1;
-    const request = store.get(id);
+      request.onsuccess = () => {
+        resolve(request.result)
+      }
 
-    request.onsuccess = () => {
-      resolve(request.result);
-    };
+      request.onerror = () => {
+        reject(request.error)
+        db.close()
+      }
+    })
+  }
 
-    request.onerror = () => {
-      reject(request.error);
-    };
-  });
-}
-export function getThemes(db: IDBDatabase): Promise<Theme[]> {
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction("themes", "readonly");
-    const store = transaction.objectStore("themes");
-    const request = store.getAll();
+  static async getBook(db: IDBDatabase, id: string) {
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction('books', 'readonly')
+      const store = transaction.objectStore('books')
+      const request = store.get(id)
 
-    request.onsuccess = () => {
-      resolve(request.result);
-    };
+      request.onsuccess = () => {
+        resolve(request.result)
+      }
 
-    request.onerror = () => {
-      reject(request.error);
-    };
-  });
-}
-export function addTheme(db: IDBDatabase, theme: Theme) {
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction("themes", "readwrite");
-    const store = transaction.objectStore("themes");
-    const request = store.add(theme);
+      request.onerror = () => {
+        reject(request.error)
+        db.close()
+      }
+    })
+  }
+  static async getTheme(db: IDBDatabase, id: number): Promise<Theme | null> {
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction('themes', 'readonly')
+      const store = transaction.objectStore('themes')
+      if (!id) id = 1
+      const request = store.get(id)
 
-    request.onsuccess = () => {
-      resolve(request.result);
-    };
+      request.onsuccess = () => {
+        resolve(request.result)
+      }
 
-    request.onerror = () => {
-      reject(request.error);
-    };
-  });
-}
+      request.onerror = () => {
+        reject(request.error)
+        db.close()
+      }
+    })
+  }
 
-export function updateTheme(db: IDBDatabase, theme: Theme) {
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction("themes", "readwrite");
-    const store = transaction.objectStore("themes");
-    const request = store.put(theme);
+  static async getThemes(db: IDBDatabase): Promise<Theme[]> {
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction('themes', 'readonly')
+      const store = transaction.objectStore('themes')
+      const request = store.getAll()
 
-    request.onsuccess = () => {
-      resolve(request.result);
-    };
+      request.onsuccess = () => {
+        resolve(request.result)
+      }
 
-    request.onerror = () => {
-      reject(request.error);
-    };
-  });
-}
+      request.onerror = () => {
+        reject(request.error)
+        db.close()
+      }
+    })
+  }
 
-export function deleteTheme(db: IDBDatabase, id: number) {
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction("themes", "readwrite");
-    const store = transaction.objectStore("themes");
-    const request = store.delete(id);
+  static async addTheme(db: IDBDatabase, theme: Theme) {
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction('themes', 'readwrite')
+      const store = transaction.objectStore('themes')
+      const request = store.add(theme)
 
-    request.onsuccess = () => {
-      resolve(request.result);
-    };
+      request.onsuccess = () => {
+        resolve(request.result)
+      }
 
-    request.onerror = () => {
-      reject(request.error);
-    };
-  });
+      request.onerror = () => {
+        reject(request.error)
+        db.close()
+      }
+    })
+  }
+
+  static async updateTheme(db: IDBDatabase, theme: Theme) {
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction('themes', 'readwrite')
+      const store = transaction.objectStore('themes')
+      const request = store.put(theme)
+
+      request.onsuccess = () => {
+        resolve(request.result)
+      }
+
+      request.onerror = () => {
+        reject(request.error)
+        db.close()
+      }
+    })
+  }
+
+  static async deleteTheme(db: IDBDatabase, id: number) {
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction('themes', 'readwrite')
+      const store = transaction.objectStore('themes')
+      const request = store.delete(id)
+
+      request.onsuccess = () => {
+        resolve(request.result)
+      }
+
+      request.onerror = () => {
+        reject(request.error)
+      }
+    })
+  }
 }

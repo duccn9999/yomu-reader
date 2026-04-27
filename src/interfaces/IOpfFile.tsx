@@ -1,33 +1,39 @@
 export interface IOpfFile {
   package: {
     metadata: {
-      "dc:language": string;
-      "dc:title": string;
-      "dc:creator": string;
-      "dc:identifiers": string[];
-      "dc:date": string;
-      metas: {
-        meta: string;
-      };
-    };
+      'dc:language': string
+      'dc:title': string
+      'dc:creator': string
+      'dc:identifier': string[]
+      'dc:date': string
+      meta:
+        | {
+            '@_name': string
+            '@_content': string
+          }
+        | {
+            '@_name': string
+            '@_content': string
+          }[]
+    }
     manifest: {
-      items: {
-        id: string;
-        href: string;
-        "media-type": string;
-      }[];
-    };
+      item: {
+        '@_id': string
+        '@_href': string
+        '@_media-type': string
+      }[]
+    }
     spine: {
-      itemrefs: {
-        idref: string;
-      }[];
-    };
-    guides: {
-      references: {
-        type: string;
-        title: string;
-        href: string;
-      }[];
-    };
-  };
+      itemref: {
+        idref: string
+      }[]
+    }
+    guide: {
+      reference: {
+        type: string
+        title: string
+        href: string
+      }[]
+    }
+  }
 }

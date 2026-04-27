@@ -1,4 +1,3 @@
-import { Toast, useToast } from "@chakra-ui/react";
 import type { GDriveFile } from "../models/gdrive_file";
 import type { Metadata } from "../models/metadata";
 import { RootFolder } from "../models/root_folder";
@@ -16,7 +15,7 @@ export class GDriveService {
     accessToken: string;
     folderId: string;
   }): Promise<RootFolder | undefined> {
-    let root = new RootFolder(folderId);
+    const root = new RootFolder(folderId);
     // 1. get subfolders
     const query = `'${folderId}' in parents and mimeType = '${import.meta.env.VITE_FOLDER_MIME_TYPE}' and trashed = false`;
 
