@@ -49,8 +49,7 @@ import { DbContext } from '../contexts/providers/db_context_provider'
 import { Db } from '../db/yomu_reader_db'
 import type { BookContent } from '../models/book_content'
 import { GenerateDummyImage } from '../utils/dummy_image'
-import { Observable } from 'rxjs'
-import { redirectDocument } from 'react-router-dom'
+import { map, Observable } from 'rxjs'
 export function Manage() {
   return (
     <ReadingProvider>
@@ -66,6 +65,9 @@ function Home() {
   const [books, setBooks] = useGetGDriveFiles(accessToken!, db!)
   /* gallery: home, 1: setting, 2: reading */
   const { screen, setScreen } = useContext(ScreenContext)
+
+  const book = useMemo(() => books.get(id), [id])
+
   const renderScreen = () => {
     switch (screen) {
       case 0:
@@ -79,7 +81,7 @@ function Home() {
       case 1:
         return <Setting />
       case 2:
-        return <ReadingScreen id={id} book={books.get(id)} key={id} />
+        return book ? <ReadingScreen id={id} book={book} key={id} /> : null
       case 3:
         return <Notes books={books} />
       default:
@@ -450,7 +452,13 @@ function Gallery({
   )
 }
 
-function ReadingScreen({ id, book }: { id: string; book: Book }) {
+const ReadingScreen = React.memo(function ReadingScreen({
+  id,
+  book,
+}: {
+  id: string
+  book: Book
+}) {
   const { db } = useContext(DbContext)
   const [bookContent, setBookContent] = useState<BookContent>()
   useEffect(() => {
@@ -458,7 +466,6 @@ function ReadingScreen({ id, book }: { id: string; book: Book }) {
     let isMounted = true
     async function fetchBook() {
       const data = await Db.getBook(db!, id)
-      console.log(data)
       if (isMounted) {
         setBookContent(data as BookContent)
       }
@@ -473,14 +480,8 @@ function ReadingScreen({ id, book }: { id: string; book: Book }) {
 
     return FilterContent(book.refs, bookContent)
   }, [book.refs, bookContent])
-  return (
-    <div
-      dangerouslySetInnerHTML={{
-        __html: renderedContent,
-      }}
-    />
-  )
-}
+  return <div dangerouslySetInnerHTML={{ __html: renderedContent }} />
+})
 
 function Notes({ books }: { books: Map<string, Book> }) {
   const [noteText, setNoteText] = useState('')
@@ -611,56 +612,40 @@ function Notes({ books }: { books: Map<string, Book> }) {
   )
 }
 
-function FilterContent(
-  refs: { ['@_idref']: string }[],
-  content: BookContent,
-): string {
-  let result = ''
-
+function FilterContent(refs: { idref: string }[], content: BookContent) {
   const blobs = content.blobs
-
+  const htmlContent = document.createElement('div')
   for (const ref of refs) {
     const chapter = content.chapters[ref['@_idref']]
+    const observable = ReplaceDummyUrlWithBlob(chapter, blobs)
+    observable.subscribe((res) => {
+      htmlContent.innerHTML += res
+    })
+  }
+  return htmlContent.innerHTML
+}
+function ReplaceDummyUrlWithBlob(html: string, blobs: Record<string, Blob>) {
+  const parser = new DOMParser()
 
-    if (!chapter) continue
+  let htmlDom = parser.parseFromString(html, 'application/xhtml+xml')
 
-    let updatedChapter = chapter
-
-    for (const [key, value] of Object.entries(blobs)) {
-      const dummyUrl = GenerateDummyImage(key)
-      const realUrl = URL.createObjectURL(value)
-
-      updatedChapter = updatedChapter.replaceAll(dummyUrl, realUrl)
-    }
-
-    result += updatedChapter
+  // fallback if XHTML parsing failed
+  const parserError = htmlDom.querySelector('parsererror')
+  if (parserError) {
+    htmlDom = parser.parseFromString(html, 'text/html')
   }
 
-  return result
-}
+  let elementHtml: string
 
-function ReplaceDummyUrlWithBlob(html: string, blobs: Record<string, Blob>) {
-  return new Observable<string>((subscriber) => {
-    const parser = new DOMParser()
+  if (htmlDom.contentType === 'application/xhtml+xml') {
+    elementHtml = new XMLSerializer().serializeToString(htmlDom)
+  } else {
+    elementHtml = htmlDom.documentElement.outerHTML
+  }
 
-    let htmlDom = parser.parseFromString(html, 'application/xhtml+xml')
+  const objectUrls: string[] = []
 
-    // fallback if XHTML parsing failed
-    const parserError = htmlDom.querySelector('parsererror')
-    if (parserError) {
-      htmlDom = parser.parseFromString(html, 'text/html')
-    }
-
-    let elementHtml: string
-
-    if (htmlDom.contentType === 'application/xhtml+xml') {
-      elementHtml = new XMLSerializer().serializeToString(htmlDom)
-    } else {
-      elementHtml = htmlDom.documentElement.outerHTML
-    }
-
-    const objectUrls: string[] = []
-
+  return new Observable<string>((subcriber) => {
     for (const [key, value] of Object.entries(blobs)) {
       const dummyUrl = GenerateDummyImage(key)
       const realUrl = URL.createObjectURL(value)
@@ -669,13 +654,11 @@ function ReplaceDummyUrlWithBlob(html: string, blobs: Record<string, Blob>) {
 
       elementHtml = elementHtml.replaceAll(dummyUrl, realUrl)
     }
-
-    subscriber.next(elementHtml)
-    subscriber.complete()
-
-    // cleanup when unsubscribe happens
+    subcriber.next(elementHtml)
+    subcriber.complete()
     return () => {
       objectUrls.forEach((url) => URL.revokeObjectURL(url))
+      subcriber.unsubscribe()
     }
   })
 }

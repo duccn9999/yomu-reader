@@ -125,7 +125,6 @@ export class Db {
     return new Promise((resolve, reject) => {
       const transaction = db.transaction('themes', 'readonly')
       const store = transaction.objectStore('themes')
-      if (!id) id = 1
       const request = store.get(id)
 
       request.onsuccess = () => {
