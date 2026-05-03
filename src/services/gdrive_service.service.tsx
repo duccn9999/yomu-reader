@@ -1,5 +1,5 @@
 import type { GDriveFile } from "../models/gdrive_file";
-import type { Metadata } from "../models/metadata";
+import type { MetadataBody } from "../models/metadata_body";
 import { RootFolder } from "../models/root_folder";
 import { SelectedData } from "../models/selected_data";
 
@@ -152,7 +152,9 @@ export class GDriveService {
     accessToken: string,
     file: File,
     parentId: string,
-  ): Promise<string | undefined> {
+  ): Promise<
+    { fileId: string; parentId: string; configFileId: string } | undefined
+  > {
     // create subfolder with the same name as the file
     const folderId = await this.CreateDirectory(
       accessToken,
@@ -176,7 +178,7 @@ export class GDriveService {
       lastRead: null,
       progress: 0,
       notes: [] as SelectedData[],
-    } as Metadata;
+    } as MetadataBody;
     const configBlob = new Blob([JSON.stringify(config)], {
       type: "application/json",
     });
@@ -192,7 +194,7 @@ export class GDriveService {
       console.error("Failed to upload config file for book: ", file.name);
       return undefined;
     }
-    return fileId;
+    return { fileId, parentId: folderId, configFileId };
   }
 
   static async UploadFile(
@@ -247,9 +249,12 @@ export class GDriveService {
   static async SyncMetadata(
     fileId: string,
     accessToken: string,
-    metadata: Metadata,
+    metadata: MetadataBody,
   ) {
     const query = `${import.meta.env.VITE_GDRIVE_FILE_UPDATE_ENDPOINT}/${fileId}?uploadType=media`;
+
+    console.log(metadata);
+
     const res = await fetch(query, {
       method: "PATCH",
       headers: {
@@ -273,5 +278,25 @@ export class GDriveService {
       },
     });
     return res;
+  }
+
+  static async GetFilesInFolder(folderId: string, accessToken: string) {
+    const baseUrl = import.meta.env.VITE_GDRIVE_FILE_LIST_ENDPOINT;
+
+    const query = `${baseUrl}?q='${folderId}'+in+parents&fields=files(id,name,mimeType)`;
+
+    const res = await fetch(query, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      return data.files;
+    }
+
+    console.error("Failed to fetch folder contents:", res);
+    return [];
   }
 }

@@ -1,5 +1,7 @@
 /* app.css */
-html, body, #root {
+html,
+body,
+#root {
   width: 100%;
   min-height: 100dvh;
   margin: 0;
@@ -12,18 +14,18 @@ html, body, #root {
   transition: filter 300ms;
 }
 .logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
+  filter: drop-shadow(0 0 2em #646cffaa) !important;
 }
 .logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+  filter: drop-shadow(0 0 2em #61dafbaa) !important;
 }
 
 @keyframes logo-spin {
   from {
-    transform: rotate(0deg);
+    transform: rotate(0deg) !important;
   }
   to {
-    transform: rotate(360deg);
+    transform: rotate(360deg) !important;
   }
 }
 
@@ -41,26 +43,29 @@ html, body, #root {
   color: #888;
 }
 
-
 #reader {
-  color: var(--txt-color);
-  background-color: var(--bg-color);
-  text-align: var(--txt-align);
-  margin-top: var(--margin-top);
-  margin-right: var(--margin-right);
-  margin-bottom: var(--margin-bottom);
-  margin-left: var(--margin-left);
-  padding-top: var(--padding-top);
-  padding-right: var(--padding-right);
-  padding-bottom: var(--padding-bottom);
-  padding-left: var(--padding-left);
-  font-family: var(--font);
-  font-size: var(--font-size);
+  color: var(--txt-color) !important;
+  background-color: var(--bg-color) !important;
+  text-align: var(--txt-align) !important;
+  margin-top: var(--margin-top) !important;
+  margin-right: var(--margin-right) !important;
+  margin-bottom: var(--margin-bottom) !important;
+  margin-left: var(--margin-left) !important;
+  padding-top: var(--padding-top) !important;
+  padding-right: var(--padding-right) !important;
+  padding-bottom: var(--padding-bottom) !important;
+  padding-left: var(--padding-left) !important;
+  font-family: var(--font) !important;
+  font-size: var(--font-size) !important;
 }
 
 #reader * {
   color: inherit;
   text-align: inherit;
+}
+
+#reader img {
+  text-align: center;
 }
 
 .highlight {

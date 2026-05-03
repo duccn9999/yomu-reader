@@ -1,13 +1,12 @@
-import type { SelectedData } from './selected_data'
+import type { MetadataBody } from "./metadata_body";
 
 export class Metadata {
-  readonly lastRead: Date | null
-  progress: number
-  notes: SelectedData[]
-
-  constructor(progress: number = 0, notes: SelectedData[] = []) {
-    this.lastRead = new Date()
-    this.progress = progress
-    this.notes = notes
+  metadataId: string;
+  metadataBody: MetadataBody;
+  /**
+   *
+   */
+  constructor(metadataId: string, metadataBody: MetadataBody) {
+    ((this.metadataId = metadataId), (this.metadataBody = metadataBody));
   }
 }
